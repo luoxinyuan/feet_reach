@@ -1,0 +1,67 @@
+# Four-anchor 100/200/400/600 analytical xyz MoE.
+#
+# This is an isolated replacement test for the 600-N/m isotropic expert:
+# all 100/200/400 directional experts are identical to the standard
+# 100-600 manifest, while baseline_600 is replaced by the direct,
+# pos_scale=0.35 xyz600 policy.
+
+# Evaluation uses the local-checkpoint task variant so parallel evaluators do
+# not concurrently query/download the same frozen low-level W&B checkpoint.
+task: G1/hl/ee/G1_hl_ee_xyz_analytical_moe_100_200_400_600_force_b_student
+stiffness_anchors: [100.0, 200.0, 400.0, 600.0]
+composition: axis_component
+action_limit: 0.999
+allow_extrapolation: false
+
+compose_in_physical_space: true
+output_pos_scale: [0.35, 0.35, 0.35]
+expert_pos_scales:
+  baseline_600: [0.35, 0.35, 0.35]
+  x_400: [0.15, 0.15, 0.15]
+  x_200: [0.15, 0.15, 0.15]
+  x_100: [0.35, 0.15, 0.15]
+  y_400: [0.15, 0.15, 0.15]
+  y_200: [0.15, 0.15, 0.15]
+  y_100: [0.15, 0.35, 0.15]
+  z_400: [0.15, 0.15, 0.15]
+  z_200: [0.15, 0.15, 0.15]
+  z_100: [0.15, 0.15, 0.35]
+
+expert_names:
+  - baseline_600
+  - x_400
+  - x_200
+  - x_100
+  - y_400
+  - y_200
+  - y_100
+  - z_400
+  - z_200
+  - z_100
+baseline_expert_name: baseline_600
+axis_expert_names:
+  x: [x_400, x_200, x_100]
+  y: [y_400, y_200, y_100]
+  z: [z_400, z_200, z_100]
+
+experts:
+  baseline_600:
+    checkpoint_path: null
+  x_400:
+    checkpoint_path: null
+  x_200:
+    checkpoint_path: null
+  x_100:
+    checkpoint_path: null
+  y_400:
+    checkpoint_path: null
+  y_200:
+    checkpoint_path: null
+  y_100:
+    checkpoint_path: null
+  z_400:
+    checkpoint_path: null
+  z_200:
+    checkpoint_path: null
+  z_100:
+    checkpoint_path: null
