@@ -26,7 +26,7 @@ bash scripts/eval_wall_foot_reach.sh \
   --video
 ```
 
-默认评估 7 个目标，每个重复 3 次；输出指标和录像到 `artifacts/foot_reach_eval/<时间戳>/`。
+默认从完整可行点集中，从初始脚位置出发，每次选择距离上一个目标最近的未选点，连续执行 20 个不同目标（不再随机采样，也不限于 validation 点），开始时重置并稳定 1 秒，之后连续切换目标，中途不重置。直接下发目标，留出 2 秒 reaching 时间，统计最后 1 秒窗口的平均位置误差；成功/失败只根据是否稳定判定；失稳即停止，剩余目标标记为未尝试。输出指标和录像到 `artifacts/foot_reach_eval/<时间戳>/`。
 
 ## W&B checkpoint 网页控制
 

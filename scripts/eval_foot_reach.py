@@ -20,21 +20,20 @@ def arguments():
     p.add_argument('--wandb-file', help='Exact checkpoint path in W&B run Files; defaults to final, then highest numbered checkpoint')
     p.add_argument('--checkpoint-cache', type=Path, default=ROOT / '.cache/wandb-checkpoints')
     p.add_argument('--targets', type=Path, help='JSON: [[x,y,z], ...] in live root frame, metres')
-    p.add_argument('--points', type=int, default=7, help='Number of default targets including anchor')
-    p.add_argument('--repeats', type=int, default=3)
+    p.add_argument('--points', type=int, default=20, help='Number of consecutive nearest-neighbor feasible targets')
     p.add_argument('--settle', type=float, default=1.)
-    p.add_argument('--ramp', type=float, default=2.)
-    p.add_argument('--hold', type=float, default=3.)
-    p.add_argument('--threshold', type=float, default=.03, help='Success error threshold in metres')
+    p.add_argument('--reach', type=float, default=2., help='Time allowed to reach the directly commanded target')
+    p.add_argument('--hold', type=float, default=1., help='Final measurement window in seconds')
     p.add_argument('--seed', type=int, default=42)
     p.add_argument('--output', type=Path)
+    p.add_argument('--continue-on-instability', action='store_true', help='Record instability but continue all targets without resetting')
     p.add_argument('--video', action='store_true')
     p.add_argument('--web', action='store_true')
     p.add_argument('--host', default='127.0.0.1')
     p.add_argument('--port', type=int, default=8765)
     p.add_argument('--web-seconds', type=float, default=0., help='0 keeps server running until Ctrl+C')
     args = p.parse_args()
-    if min(args.repeats, args.points) < 1 or min(args.settle, args.ramp, args.hold, args.threshold) <= 0:
+    if args.points < 1 or min(args.settle, args.reach, args.hold) <= 0:
         p.error('Counts and durations must be positive')
     if args.checkpoint is None:
         if args.wandb_file:
@@ -68,21 +67,24 @@ def select_targets(args):
     if args.targets:
         targets = np.asarray(json.loads(args.targets.read_text()), dtype=float)
     else:
-        manifest = json.loads((ROOT / 'artifacts/foot_reach/manifest.json').read_text())
-        ids = sorted({c['endpoint_id'] for c in manifest['clips'] if c['split'] == 'val'})
-        candidates = workspace['points_root'][ids]
-        # Deterministic farthest-point selection covers the held-out endpoints.
-        chosen = [anchor]
-        for _ in range(min(args.points - 1, len(candidates))):
-            distance = np.linalg.norm(candidates[:, None] - np.array(chosen)[None], axis=-1).min(axis=1)
-            i = int(distance.argmax()); chosen.append(candidates[i]); candidates = np.delete(candidates, i, 0)
-        targets = np.array(chosen)
+        candidates = np.unique(workspace['points_root'], axis=0)
+        candidates = candidates[np.linalg.norm(candidates-anchor, axis=1) > 1e-9]
+        if len(candidates) < args.points:
+            raise ValueError(f'Only {len(candidates)} distinct non-anchor feasible points; requested {args.points}')
+        chosen = []
+        current = anchor
+        for _ in range(args.points):
+            index = int(np.linalg.norm(candidates-current, axis=1).argmin())
+            current = candidates[index].copy()
+            chosen.append(current)
+            candidates = np.delete(candidates, index, axis=0)
+        targets = np.asarray(chosen)
     if targets.ndim != 2 or targets.shape[1] != 3 or not np.isfinite(targets).all() or not len(targets):
         raise ValueError('Targets must be a finite nonempty Nx3 array')
     return targets, anchor, workspace['points_root'].min(0), workspace['points_root'].max(0)
 
 
-def write_reports(output, trials):
+def write_reports(output, trials, planned_targets=None):
     """Keep failures in denominators; accuracy of completed trials is labelled."""
     points = []
     for point in sorted({r['point'] for r in trials}):
@@ -93,10 +95,15 @@ def write_reports(output, trials):
             failures=sum(r['failed'] for r in rows),
             mean_error_completed_trials_m=(sum(r['mean_error_m'] for r in completed)/len(completed)
                                            if completed else None)))
+    planned_targets = len(trials) if planned_targets is None else planned_targets
     summary = dict(trials=trials, per_point=points,
+        planned_targets=planned_targets, attempted_targets=len(trials),
+        unattempted_targets=planned_targets-len(trials),
+        all_targets_evaluated=len(trials)==planned_targets and all(r['completed_hold'] for r in trials),
+        sequence_completed=len(trials)==planned_targets and all(r['success'] for r in trials),
         success_rate=sum(r['success'] for r in trials)/len(trials),
         failure_rate=sum(r['failed'] for r in trials)/len(trials),
-        note='Hold frames only. Failed/partial trials remain in denominators. Success requires full hold and >=95% frames within threshold. Per-point mean uses completed holds only.')
+        note='Hold frames only. Rates use attempted targets only; unattempted targets are reported separately. Drift is relative to the initial reset. Success means the entire trial stayed stable; accuracy does not determine success. Per-point mean uses completed holds only.')
     (output/'summary.json').write_text(json.dumps(summary, indent=2, allow_nan=False))
     with (output/'metrics.csv').open('w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=list(trials[0]))
@@ -138,8 +145,8 @@ def main():
     (args.output / 'config.json').write_text(json.dumps(dict(checkpoint=str(args.checkpoint),
         coordinate_frame='live root, full quaternion; left sole centre; metres', seed=args.seed,
         external_force_enabled=False, rng_seed_timing='after checkpoint loading',
-        repeats=args.repeats, settle_s=args.settle, ramp_s=args.ramp, hold_s=args.hold,
-        threshold_m=args.threshold, default_targets='anchor + held-out validation endpoints',
+        repeats=1, settle_s=args.settle, reach_s=args.reach, hold_s=args.hold,
+        protocol='continuous_nearest_targets_v4', continue_on_instability=args.continue_on_instability, default_targets='nearest unvisited feasible point from anchor; full workspace, not validation-only',
         failure='nonfinite state, root displacement >0.20m, gravity z >-0.7, support drift >0.12m or hand drift >0.15m'), indent=2))
     del state
     app = AppLauncher(headless=True, enable_cameras=cfg.eval_render, device='cuda:0').app
@@ -297,40 +304,42 @@ def main():
                     fields=['point','repeat','time_s','phase','target_x','target_y','target_z',
                             'actual_x','actual_y','actual_z','error_m','root_drift_m','support_drift_m','hand_drift_m','failure']
                     csv_writer=csv.DictWriter(f,fieldnames=fields);csv_writer.writeheader()
+                    total=0
                     for point,target in enumerate(targets):
-                        for repeat in range(args.repeats):
-                            reset(); errors=[]; vectors=[]; failure=''; total=0
-                            phases=[('settle',args.settle),('ramp',args.ramp),('hold',args.hold)]
-                            for phase,duration in phases:
-                                count=max(1,round(duration/dt))
-                                for k in range(count):
-                                    alpha=(k+1)/count if phase=='ramp' else float(phase=='hold')
-                                    alpha=alpha**3*(10-15*alpha+6*alpha**2)
-                                    command=anchor+(target-anchor)*alpha
-                                    m,sole=step(command)
-                                    csv_writer.writerow(dict(point=point,repeat=repeat,time_s=total*dt,phase=phase,
-                                        **dict(zip(['target_x','target_y','target_z'],m['target'])),
-                                        **dict(zip(['actual_x','actual_y','actual_z'],m['actual'])),error_m=m['error'],
-                                        root_drift_m=m['root_drift'],support_drift_m=m['support_drift'],hand_drift_m=m['hand_drift'],failure=m['failure']))
-                                    if total%5==0: render_frame(m,sole,f'point {point}, repeat {repeat}, {phase}')
-                                    total+=1
-                                    if phase=='hold' and np.isfinite(m['error']):
-                                        errors.append(m['error']); vectors.append(m['actual']-m['target'])
-                                    if m['failure']: failure=m['failure']; break
-                                if failure: break
-                            successful=not failure and bool(errors) and float(np.mean(np.array(errors)<=args.threshold))>=.95
-                            result=dict(point=point,repeat=repeat,target_root_xyz_m=target.tolist(),
-                                failed=bool(failure),failure=failure,completed_hold=not bool(failure),success=successful,
-                                hold_samples=len(errors),mean_error_m=None,rmse_m=None,p95_error_m=None,max_error_m=None,
-                                within_threshold_fraction=None,axis_mae_m=None)
-                            if errors:
-                                result.update(mean_error_m=float(np.mean(errors)),rmse_m=float(np.sqrt(np.mean(np.square(errors)))),
-                                    p95_error_m=float(np.percentile(errors,95)),max_error_m=float(np.max(errors)),
-                                    within_threshold_fraction=float(np.mean(np.array(errors)<=args.threshold)),
-                                    axis_mae_m=np.mean(np.abs(vectors),axis=0).tolist())
-                            summaries.append(result)
-                            write_reports(args.output, summaries)
-                            f.flush(); print(json.dumps(result),flush=True)
+                        repeat=0; errors=[]; vectors=[]; failure=''
+                        phases=([('settle',args.settle)] if point == 0 else []) + [('reach',args.reach),('hold',args.hold)]
+                        for phase,duration in phases:
+                            count=max(1,round(duration/dt))
+                            for k in range(count):
+                                command=anchor if phase=='settle' else target
+                                m,sole=step(command)
+                                csv_writer.writerow(dict(point=point,repeat=repeat,time_s=total*dt,phase=phase,
+                                    **dict(zip(['target_x','target_y','target_z'],m['target'])),
+                                    **dict(zip(['actual_x','actual_y','actual_z'],m['actual'])),error_m=m['error'],
+                                    root_drift_m=m['root_drift'],support_drift_m=m['support_drift'],hand_drift_m=m['hand_drift'],failure=m['failure']))
+                                if total%5==0: render_frame(m,sole,f'point {point}, repeat {repeat}, {phase}')
+                                total+=1
+                                if phase=='hold' and np.isfinite(m['error']):
+                                    errors.append(m['error']); vectors.append(m['actual']-m['target'])
+                                if m['failure']:
+                                    failure='+'.join(sorted(set(failure.split('+') + m['failure'].split('+')) - {''}))
+                                    if not args.continue_on_instability: break
+                            if failure and not args.continue_on_instability: break
+                        successful=not bool(failure)
+                        result=dict(point=point,repeat=repeat,target_root_xyz_m=target.tolist(),
+                            failed=bool(failure),failure=failure,completed_hold=len(errors)==max(1,round(args.hold/dt)),success=successful,
+                            hold_samples=len(errors),mean_error_m=None,rmse_m=None,p95_error_m=None,max_error_m=None,
+                            axis_mae_m=None)
+                        if errors:
+                            result.update(mean_error_m=float(np.mean(errors)),rmse_m=float(np.sqrt(np.mean(np.square(errors)))),
+                                p95_error_m=float(np.percentile(errors,95)),max_error_m=float(np.max(errors)),
+                                axis_mae_m=np.mean(np.abs(vectors),axis=0).tolist())
+                        summaries.append(result)
+                        write_reports(args.output, summaries, len(targets))
+                        f.flush(); print(json.dumps(result),flush=True)
+                        if failure and not args.continue_on_instability:
+                            print('Sequence stopped after instability; remaining targets were not attempted.', flush=True)
+                            break
                 print(f'EVAL_COMPLETE {args.output}',flush=True)
     except KeyboardInterrupt:
         print('Evaluation stopped by user.', flush=True)
