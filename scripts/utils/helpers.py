@@ -212,6 +212,9 @@ def evaluate(
     keys.add(("next", "done"))
 
     env.eval()
+    if getattr(env.command_manager, "foot_force_train_only", False):
+        # TransformedEnv.eval() does not switch the underlying EnvBase here.
+        env.base_env.eval()
     env.set_seed(seed)
 
     tensordict_ = env.reset()

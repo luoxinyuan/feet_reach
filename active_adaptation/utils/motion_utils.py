@@ -71,11 +71,11 @@ def interpolate(motion, target_fps: int = 50):
 def rotate_to_body(root_quat, vecs):
     """
     Rotate world-frame vectors into the body frame defined by the root quaternion.
-    root_quat: (T,4) scalar-last
+    root_quat: (T,4) scalar-first (wxyz)
     vecs: (T, N, 3)
     Returns (T, N, 3)
     """
-    r = sRot.from_quat(root_quat, scalar_first=True)
+    r = sRot.from_quat(np.asarray(root_quat)[..., [1, 2, 3, 0]])
     inv = r.inv().as_matrix()  # (T,3,3)
     return np.einsum('tij,tnj->tni', inv, vecs)
 

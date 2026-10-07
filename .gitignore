@@ -207,3 +207,6 @@ datasettrain.sh
 # datasets
 dataset/
 
+
+# Local reference-generation virtual environments
+.venv-*/

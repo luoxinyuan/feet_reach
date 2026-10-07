@@ -1,0 +1,8 @@
+# Scene matching artifacts/wall_support/reference.*.
+# Side wall for the photo-guided pose; inside plane y=0.25 m.
+objects:
+  - type: wall
+    name: wall_left
+    pos: [0.05, 0.275, 0.75]
+    size: [1.0, 0.05, 1.5]
+    color: [0.6, 0.6, 0.65]

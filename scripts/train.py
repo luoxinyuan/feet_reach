@@ -83,7 +83,7 @@ def main(cfg: DictConfig):
 
         default_run_name = f"{cfg.exp_name}-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')}"
         run_idx = (run.name or run.id or "debug").split("-")[-1]
-        run.name = f"{run_idx}-{default_run_name}"
+        run.name = cfg.wandb.get("run_name") or f"{run_idx}-{default_run_name}"
         setproctitle(run.name)
 
         os.makedirs(run.dir, exist_ok=True)
@@ -115,7 +115,7 @@ def main(cfg: DictConfig):
             state_dict["policy"] = policy.state_dict()
             state_dict["env"] = env.state_dict()
             state_dict["cfg"] = cfg
-            if "vecnorm" in locals():
+            if vecnorm is not None:
                 state_dict["vecnorm"] = vecnorm.state_dict()
             torch.save(state_dict, ckpt_path)
             run.save(ckpt_path, policy="now", base_path=run.dir)

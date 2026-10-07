@@ -1,4 +1,32 @@
-# Hierarchical Humanoid Compliance
+# G1 Wall Foot Reach
+
+G1 全身扶墙脚部 reaching：左手扶墙、右脚支撑、左脚跟踪实时 root 坐标系下的笛卡尔目标。
+
+包含 Crocoddyl 参考姿态与连续轨迹生成、沿用 low-level 框架的 teacher/adapt/finetune
+训练、target joint estimator、0–20 N 脚底 ramp 外力扰动、固定目标精度评估与网页遥操作。
+
+## 使用入口
+
+- [参考姿态生成](scripts/references/README.md)
+- [轨迹数据集、训练与外力配置](scripts/references/FOOT_REACH.md)
+- [固定点评估、录像及 VS Code 网页遥操作](scripts/foot_reach/README.md)
+- 任务配置：`cfg/task/G1/G1_wall_foot_reach.yaml`
+- 八卡三阶段训练：`WANDB_RUN_NAME=v2 bash scripts/train_wall_foot_reach_pipeline.sh`
+- 评估录像：`bash scripts/eval_wall_foot_reach.sh --checkpoint /path/to/checkpoint_final.pt --video`
+- 网页控制：`bash scripts/eval_wall_foot_reach.sh --checkpoint /path/to/checkpoint_final.pt --web --port 8765`
+
+训练和评估依赖 Isaac Lab / Isaac Sim。运行前请按本机环境调整脚本中的 Python、Isaac Lab
+路径；生成参考使用单独的 Crocoddyl 环境，依赖锁定见 `scripts/references/requirements-lock.txt`。
+网页默认监听 localhost，可通过 VS Code Remote SSH 的 Ports 面板转发 8765 端口访问。
+
+Git 仓库包含源代码及 G1 USD 模型；`dataset/`、`artifacts/`、`outputs/`、WandB 日志和
+训练 checkpoint 不在版本控制中。新机器上需要依照上述文档生成数据，或自行复制数据及 checkpoint。
+
+本项目基于原 Hierarchical Humanoid Compliance 代码扩展，以下保留原框架说明。
+
+---
+
+## Original framework: Hierarchical Humanoid Compliance
 
 This repository provides Isaac Lab training and evaluation code for a
 two-layer humanoid compliance controller. A shared low-level whole-body policy

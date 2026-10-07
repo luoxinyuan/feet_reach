@@ -70,6 +70,7 @@ class PPOConfig:
     latent_dim: int = 256
     # joint prediction weight for adapt-phase estimator
     joint_pred_weight: float = 1.0
+    symmetry_augmentation: bool = True
 
     # distillation
     reg_lambda: float = 0.2  # weight of priv-feature alignment
@@ -112,6 +113,8 @@ class PPOPolicy(TensorDictModuleBase):
     ) -> None:
         super().__init__()
         self.cfg = cfg
+        if cfg.symmetry_augmentation and not getattr(env.command_manager, "supports_symmetry_augmentation", True):
+            raise ValueError("This command requires algo.symmetry_augmentation=false (fixed support side)")
         self.device = device
         self.observation_spec = observation_spec
         assert cfg.phase in {"train", "finetune", "adapt"}
@@ -379,19 +382,22 @@ class PPOPolicy(TensorDictModuleBase):
         action_old = mb["action"].clone()
         logp_old = mb["sample_log_prob"].clone()
 
-        mb_sym = mb.clone()
-        mb_sym[OBS_KEY] = self.obs_transform(mb_sym[OBS_KEY])
-        mb_sym[OBS_PRIV_KEY] = self.obs_priv_transform(mb_sym[OBS_PRIV_KEY])
-        if OBS_JOINT_KEY in mb_sym.keys():
-            mb_sym[OBS_JOINT_KEY] = self.obs_joint_transform(mb_sym[OBS_JOINT_KEY])
-        mb_sym[CRITIC_PRIV_KEY] = self.critic_priv_transform(mb_sym[CRITIC_PRIV_KEY])
-        mb_sym["adv"] = mb["adv"]
-        mb_sym["ret"] = mb["ret"]
-        mb_sym["is_init"] = mb["is_init"]
+        if self.cfg.symmetry_augmentation:
+            mb_sym = mb.clone()
+            mb_sym[OBS_KEY] = self.obs_transform(mb_sym[OBS_KEY])
+            mb_sym[OBS_PRIV_KEY] = self.obs_priv_transform(mb_sym[OBS_PRIV_KEY])
+            if OBS_JOINT_KEY in mb_sym.keys():
+                mb_sym[OBS_JOINT_KEY] = self.obs_joint_transform(mb_sym[OBS_JOINT_KEY])
+            mb_sym[CRITIC_PRIV_KEY] = self.critic_priv_transform(mb_sym[CRITIC_PRIV_KEY])
+            mb_sym["adv"] = mb["adv"]
+            mb_sym["ret"] = mb["ret"]
+            mb_sym["is_init"] = mb["is_init"]
 
-        mb_sym = mb_sym.exclude("next")
-        mb = mb.exclude("next")
-        mb = torch.cat([mb, mb_sym], dim=0)
+            mb_sym = mb_sym.exclude("next")
+            mb = mb.exclude("next")
+            mb = torch.cat([mb, mb_sym], dim=0)
+        else:
+            mb = mb.exclude("next")
         valid = ~mb["is_init"]
         mb = mb.exclude("sample_log_prob", "action")
 
@@ -422,8 +428,12 @@ class PPOPolicy(TensorDictModuleBase):
         else:
             reg_loss = 0.0
         
-        symmetry_loss_loc = F.mse_loss(mb["loc"][:bsize], self.act_transform(mb["loc"][bsize:])) * 0.2
-        symmetry_loss_std = F.mse_loss(mb["scale"][:bsize], self.act_transform(mb["scale"][bsize:], sign=False)) * 10
+        if self.cfg.symmetry_augmentation:
+            symmetry_loss_loc = F.mse_loss(mb["loc"][:bsize], self.act_transform(mb["loc"][bsize:])) * 0.2
+            symmetry_loss_std = F.mse_loss(mb["scale"][:bsize], self.act_transform(mb["scale"][bsize:], sign=False)) * 10
+        else:
+            symmetry_loss_loc = mb["loc"].new_zeros(())
+            symmetry_loss_std = mb["loc"].new_zeros(())
 
         loss = policy_loss + entropy_loss + value_loss.mean() + reg_loss + symmetry_loss_loc + symmetry_loss_std
 
@@ -479,17 +489,20 @@ class PPOPolicy(TensorDictModuleBase):
         return {k: v.mean().item() for k, v in torch.stack(infos).items()}
 
     def _update2(self, mb, adapt_module, adapt_joint_module, opt_estimator, opt_joint):
-        mb_sym = mb.clone()
-        mb_sym[OBS_KEY] = self.obs_transform(mb_sym[OBS_KEY])
-        mb_sym[OBS_PRIV_KEY] = self.obs_priv_transform(mb_sym[OBS_PRIV_KEY])
-        if OBS_JOINT_KEY in mb_sym.keys():
-            mb_sym[OBS_JOINT_KEY] = self.obs_joint_transform(mb_sym[OBS_JOINT_KEY])
-        mb_sym[CRITIC_PRIV_KEY] = self.critic_priv_transform(mb_sym[CRITIC_PRIV_KEY])
-        mb_sym["is_init"] = mb["is_init"]
+        if self.cfg.symmetry_augmentation:
+            mb_sym = mb.clone()
+            mb_sym[OBS_KEY] = self.obs_transform(mb_sym[OBS_KEY])
+            mb_sym[OBS_PRIV_KEY] = self.obs_priv_transform(mb_sym[OBS_PRIV_KEY])
+            if OBS_JOINT_KEY in mb_sym.keys():
+                mb_sym[OBS_JOINT_KEY] = self.obs_joint_transform(mb_sym[OBS_JOINT_KEY])
+            mb_sym[CRITIC_PRIV_KEY] = self.critic_priv_transform(mb_sym[CRITIC_PRIV_KEY])
+            mb_sym["is_init"] = mb["is_init"]
 
-        mb_sym = mb_sym.exclude("next")
-        mb = mb.exclude("next")
-        mb = torch.cat([mb, mb_sym], dim=0)
+            mb_sym = mb_sym.exclude("next")
+            mb = mb.exclude("next")
+            mb = torch.cat([mb, mb_sym], dim=0)
+        else:
+            mb = mb.exclude("next")
 
         with torch.no_grad():
             self.encoder_priv(mb)

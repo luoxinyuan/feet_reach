@@ -1,0 +1,13 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>G1 脚部 Reach</title>
+<style>body{font:16px system-ui;background:#101827;color:#eef2ff;margin:24px}main{display:flex;gap:24px;flex-wrap:wrap}img{width:min(900px,100%);background:#000;border-radius:12px}aside{width:320px}button{padding:14px;margin:5px;border:0;border-radius:8px;background:#293c60;color:white;cursor:pointer}pre{white-space:pre-wrap;line-height:1.7}.hint{color:#adbad1}</style>
+<h1>G1 扶墙 · 左脚 Reach</h1><main><div><img id="video" alt="等待仿真画面"><p class="hint">红球：当前指令目标　绿球：实际脚底中心</p></div><aside>
+<p>实时 root 坐标系，每次点击移动 1 cm。目标平滑移动，最大 0.1 m/s。</p>
+<div><button onclick="send('z+')">↑ 上 / Z+</button><button onclick="send('z-')">↓ 下 / Z−</button></div>
+<div><button onclick="send('y+')">← 左 / Y+</button><button onclick="send('y-')">→ 右 / Y−</button></div>
+<div><button onclick="send('x+')">前 / X+</button><button onclick="send('x-')">后 / X−</button></div>
+<div><button onclick="send('reset')">重置机器人</button><button onclick="send('pause')">暂停 / 继续</button></div>
+<pre id="state">连接中…</pre><p class="hint">按钮按机器人坐标方向控制，不是屏幕方向。范围限制为已采样工作空间的包围盒，不保证盒内每点均可达。失稳后暂停，请重置。</p></aside></main>
+<script>
+async function send(c){await fetch('/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)})}
+async function poll(){try{const s=await(await fetch('/state')).json();document.getElementById('state').textContent=JSON.stringify(s,null,2);document.getElementById('video').src='/frame.jpg?t='+Date.now()}catch(e){document.getElementById('state').textContent='连接中断：'+e}setTimeout(poll,150)}poll();
+</script></html>

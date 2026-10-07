@@ -245,9 +245,10 @@ def create_wall_cfg(
     rot: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
     size: Tuple[float, float, float] = (0.05, 2.0, 1.0),  # thin, wide, tall
     color: Tuple[float, float, float] = (0.7, 0.7, 0.7),
+    friction: Optional[float] = None,
 ) -> "RigidObjectCfg":
     """Create a static wall configuration."""
-    return create_box_cfg(
+    cfg = create_box_cfg(
         name=name,
         pos=pos,
         rot=rot,
@@ -256,6 +257,11 @@ def create_wall_cfg(
         static=True,
         collision=True,
     )
+
+    if friction is not None:
+        cfg.spawn.physics_material = sim_utils.RigidBodyMaterialCfg(
+            static_friction=friction, dynamic_friction=friction, restitution=0.0)
+    return cfg
 
 
 def create_table_cfg(

@@ -22,6 +22,7 @@ vecnorm: ${oc.select:algo.vecnorm,train}
 camera_follow: false
 
 wandb:
+  run_name: null # Optional exact run name; null preserves automatic naming.
   name: ${..exp_name}/${now:%m-%d}_${now:%H-%M}
   job_type: train
   project: your-wandb-project

@@ -16,7 +16,10 @@ class ProgressiveMultiMotionDataset:
                  ds_device: torch.device = torch.device("cpu"),
                  fix_ds: int = None,
                  fix_motion_id: int = None,
-                 sample_once: bool = True):
+                 sample_once: bool = True,
+                 position_z_offset: float = 0.035,
+                 clamp_joint_targets: bool = True,
+                 buffer_float_dtype: str = "float16"):
         self.device = device
         self.ds_device = ds_device
         self.env_size = env_size
@@ -27,6 +30,11 @@ class ProgressiveMultiMotionDataset:
         self.fix_ds = fix_ds
         self.fix_motion_id = fix_motion_id
         self.sample_once = sample_once
+        self.position_z_offset = float(position_z_offset)
+        self.clamp_joint_targets = bool(clamp_joint_targets)
+        if buffer_float_dtype not in ("float16", "float32"):
+            raise ValueError("buffer_float_dtype must be float16 or float32")
+        self.buffer_float_dtype = getattr(torch, buffer_float_dtype)
 
         self.datasets = [
             MotionDataset.create_from_path_lazy(p, dataset_extra_keys, device=ds_device)
@@ -132,7 +140,7 @@ class ProgressiveMultiMotionDataset:
             if torch.is_floating_point(t):
                 mm[field] = torch.zeros(
                     (self.env_size, self.max_step_size) + t.shape[1:],
-                    dtype=torch.float16,
+                    dtype=self.buffer_float_dtype,
                     device=self.device
                 )
             else:
@@ -195,7 +203,7 @@ class ProgressiveMultiMotionDataset:
             local_idx = local_starts.unsqueeze(1) + steps  # (k, max_step)
             local_idx = local_idx.clamp(max=local_ends.unsqueeze(1))
 
-            buf[mask, :self.max_step_size] = self._to_float(ds.data[local_idx].to(self.device), dtype=torch.float16)
+            buf[mask, :self.max_step_size] = self._to_float(ds.data[local_idx].to(self.device), dtype=self.buffer_float_dtype)
             len_buf[mask] = ds.lengths[mids_long].clamp_max(self.max_step_size).to(self.device)
 
             for k in self.dataset_extra_keys:
@@ -203,8 +211,9 @@ class ProgressiveMultiMotionDataset:
                 info_buf[name][mask] = ds.info[name][mids_long].to(self.device)
 
     def _post_process(self, data: "MotionData") -> "MotionData":
-        data = self._clamp_joint_pos_vel(data)
-        data = self._offset_pos_z(data)
+        if self.clamp_joint_targets:
+            data = self._clamp_joint_pos_vel(data)
+        data = self._offset_pos_z(data, self.position_z_offset)
         return data
 
     def _offset_pos_z(self, data: "MotionData", z_offset: float = 0.035):
