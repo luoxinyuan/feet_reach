@@ -1,17 +1,38 @@
 # 扶墙脚部固定点评估 / 网页遥操作
 
-在项目根目录运行。默认使用 `outputs/wall-foot-reach/latest_pipeline.txt` 指向的最终 finetune checkpoint；可用 `--checkpoint /absolute/path/checkpoint_final.pt` 指定。只接受包含观测归一化参数的 student checkpoint。评估不会修改训练文件或上传 WandB。
+在项目根目录、已配置 Isaac Lab / PyTorch / wandb 的环境中运行。评估与网页模式共用 `--checkpoint`，支持 W&B / CoreWeave Forge run 链接，下载后加载 student policy 及观测归一化参数。
+
+## 固定目标评估与录像
 
 ```bash
-# 默认 7 个固定目标 × 3 次重复，并录像
-bash scripts/eval_wall_foot_reach.sh --video
-
-# 自定义目标（米），可从上次输出的 targets.json 修改
-bash scripts/eval_wall_foot_reach.sh --targets /path/targets.json --repeats 5 --video
-
-# 网页遥操作，可同时录像
-bash scripts/eval_wall_foot_reach.sh --web --video --port 8765
+bash scripts/eval_wall_foot_reach.sh \
+  --checkpoint 'https://forge.coreweave.com/wandb/luoxinyuan-duke-university/wall-foot-reach/runs/wall-foot-reach-finetune-20261004_164441' \
+  --video
 ```
+
+默认 7 个目标 × 3 次重复。自定义目标时，在上述命令后添加 `--targets /path/targets.json --repeats 5`。
+
+## 网页遥操作
+
+```bash
+bash scripts/eval_wall_foot_reach.sh \
+  --checkpoint 'https://forge.coreweave.com/wandb/luoxinyuan-duke-university/wall-foot-reach/runs/wall-foot-reach-finetune-20261004_164441' \
+  --web --port 8765
+```
+
+加 `--video` 可同时录像。只接受包含 `cfg`、`vecnorm` 的 adapt / finetune 扶墙脚部 student checkpoint。评估不会上传 W&B。
+
+## Checkpoint 下载与环境
+
+先在评估 Python 环境中运行 `python -m wandb login`，或使用已有的 `WANDB_API_KEY`。
+
+也支持 `https://wandb.ai/<entity>/<project>/runs/<run-id>` 和 `run:<entity>/<project>/<run-id>`。链接的查询参数会被忽略。默认优先下载 `checkpoint_final.pt`（也识别 `.ckpt` / `.pth`），否则选择编号最大的 checkpoint；多个同优先级文件时需用 `--wandb-file` 指定 run Files 中的完整相对路径，例如 `--wandb-file checkpoint_2000.pt`。这里只读取训练脚本通过 `run.save` 上传的 Files。
+
+下载缓存在 `.cache/wandb-checkpoints/`，以 API 地址、run、文件名和远端摘要区分，远端文件变化后重新下载；可用 `--checkpoint-cache` 修改目录。再次运行仍需联网读取文件元信息。W&B API 地址沿用 SDK 配置（默认 `https://api.wandb.ai`）；私有部署使用 `WANDB_BASE_URL` 和 `run:` 格式。
+
+本地 `--checkpoint /path/to/checkpoint_final.pt` 继续可用。不传参数仍选择本地 pipeline。`PYTHON=/path/to/python` 可指定安装了 Isaac Lab / PyTorch / wandb 的 Python，`ISAACLAB_PATH` 指向 IsaacLab 仓库。仍需准备 `artifacts/foot_reach/workspace.npz`、`manifest.json` 及 checkpoint 配置引用的数据和机器人资产；下载权重不会下载这些资源。
+
+## 目标、指标与输出
 
 JSON 格式：`[[0.1, 0.15, -0.5], [0.2, 0.15, -0.4]]`。这里只是格式示例，不保证这些点可达。目标为左脚脚底中心相对**实时 root 完整坐标系**的位置；X 前、Y 左、Z 上，单位米。因此机器人 root 移动时，其对应世界目标也会移动。程序额外记录支撑脚、手、root 的世界位置漂移。
 

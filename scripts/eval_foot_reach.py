@@ -16,7 +16,9 @@ os.environ.setdefault('MEMPATH', str(ROOT / 'dataset'))
 
 def arguments():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--checkpoint', type=Path, help='Defaults to latest pipeline final student checkpoint')
+    p.add_argument('--checkpoint', help='Local file, W&B/Forge run URL, or run:entity/project/run-id; defaults to latest pipeline final student')
+    p.add_argument('--wandb-file', help='Exact checkpoint path in W&B run Files; defaults to final, then highest numbered checkpoint')
+    p.add_argument('--checkpoint-cache', type=Path, default=ROOT / '.cache/wandb-checkpoints')
     p.add_argument('--targets', type=Path, help='JSON: [[x,y,z], ...] in live root frame, metres')
     p.add_argument('--points', type=int, default=7, help='Number of default targets including anchor')
     p.add_argument('--repeats', type=int, default=3)
@@ -35,6 +37,10 @@ def arguments():
     if min(args.repeats, args.points) < 1 or min(args.settle, args.ramp, args.hold, args.threshold) <= 0:
         p.error('Counts and durations must be positive')
     if args.checkpoint is None:
+        if args.wandb_file:
+            p.error('--wandb-file requires --checkpoint with a W&B run')
+        if not (ROOT / 'outputs/wall-foot-reach/latest_pipeline.txt').is_file():
+            p.error('No local pipeline found; specify --checkpoint with a local file or W&B run URL')
         pipeline = Path((ROOT / 'outputs/wall-foot-reach/latest_pipeline.txt').read_text().strip())
         matches = list((pipeline / 'finetune').rglob('checkpoint_final.pt'))
         if not matches:
@@ -44,7 +50,11 @@ def arguments():
                 print(f'Latest pipeline still running; evaluating completed checkpoint: {matches[0]}')
         if len(matches) != 1: p.error('Specify --checkpoint: final finetune checkpoint not unique')
         args.checkpoint = matches[0]
-    args.checkpoint = args.checkpoint.resolve(strict=True)
+    from scripts.foot_reach.checkpoints import resolve_checkpoint
+    try:
+        args.checkpoint = resolve_checkpoint(str(args.checkpoint), args.checkpoint_cache, args.wandb_file)
+    except (ValueError, OSError) as exc:
+        p.error(str(exc))
     if args.output is None:
         args.output = ROOT / 'artifacts/foot_reach_eval' / time.strftime('%Y%m%d_%H%M%S')
     args.output.mkdir(parents=True, exist_ok=False)
