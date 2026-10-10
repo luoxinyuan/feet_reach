@@ -1,0 +1,108 @@
+# @package task
+defaults:
+  - /task/G1/G1
+  - _self_
+
+name: G1ProactiveEE
+proactive_contact: true
+observe_on_reset: true
+num_envs: 1024
+max_episode_length: 500
+robot:
+  name: g1_col_full
+flags: []
+# Contact-aware EE tracking; nominal joint labels supervise the estimator only.
+objects:
+  - type: wall
+    name: reach_wall
+    pos: [0.475, 0.15, 1.0]
+    size: [0.05, 1.0, 1.0]
+    friction: 0.6
+action:
+  _target_: active_adaptation.envs.mdp.action.JointPosition
+  action_scaling: {".*": 0.5}
+  max_delay: 0
+  alpha: [1.0, 1.0]
+  boot_protect: false
+command:
+  _target_: active_adaptation.envs.mdp.commands.proactive_ee.ProactiveEECommand
+  geometry_points: 128
+  no_wall_prob: 0.25
+  wall_range: [0.40, 0.50]
+  force_soft: 20.0
+  force_rate_soft: 1000.0
+  student_train: false
+  foot_force:
+    enabled: false
+  sole_offset: [0., 0., -0.03540915]
+  joint_patterns: [".*"]
+  ignore_joint_patterns: []
+  dataset:
+    mem_paths: [ee_reach/train]
+    path_weights: [1.0]
+    sample_once: false
+    position_z_offset: 0.0
+    clamp_joint_targets: false
+    buffer_float_dtype: float32
+  dataset_extra_keys: []
+  init_noise:
+    root_pos: 0.0
+    root_ori: 0.0
+    root_lin_vel: 0.0
+    root_ang_vel: 0.0
+    joint_pos: 0.0
+    joint_vel: 0.0
+  reward_sigma:
+    root_pos: [0.08]
+    root_vel: [0.5]
+    root_rot: [0.3]
+    root_ang_vel: [1.0]
+    keypoint: [0.1]
+    lower_keypoint: [0.1]
+    joint_pos: [0.15]
+    joint_vel: [1.0]
+    ee: [0.06]
+    ee_rot: [0.3]
+    feet: [0.06]
+observation:
+  policy:
+    target_ee_pos_b: {}
+    root_ang_vel_history: {history_steps: [0], noise_std: 0.02}
+    projected_gravity_history: {history_steps: [0], noise_std: 0.005}
+    joint_pos_history: {history_steps: [0, 1, 2, 3, 4], noise_std: 0.003}
+    prev_actions: {steps: 3}
+  geometry_:
+    geometry_cloud: {}
+  joint_target:
+    target_joint_pos_obs: {}
+  priv:
+    target_pos_b_obs: {}
+    target_linvel_b_obs: {}
+    relative_quat_obs: {}
+    target_projected_gravity_b: {}
+    root_linvel_b: {}
+    current_keypoint_b: {}
+    current_keypoint_vel_b: {}
+    target_keypoints_diff_b_obs: {}
+    applied_torque: {}
+  priv_critic:
+    cum_error: {}
+reward:
+  _student_train_: false
+  tracking:
+    reach_tracking: {weight: 5.0}
+    double_support_tracking: {weight: 3.0}
+    contact_force_cost: {weight: 0.5}
+    contact_jump_cost: {weight: 0.1}
+    root_pos_tracking: {weight: 2.0}
+    root_rot_tracking: {weight: 1.0}
+    root_vel_tracking: {weight: 0.5}
+    root_ang_vel_tracking: {weight: 0.5}
+  loco:
+    survival: {weight: 1.0}
+    joint_vel_l2: {weight: 0.0005, joint_names: ".*"}
+    action_rate_l2: {weight: 0.1}
+    joint_pos_limits: {weight: 1.0, joint_names: ".*", soft_factor: 0.9}
+randomization: {}
+termination:
+  cum_error: {thres: 1.0, min_steps: 50}

@@ -69,6 +69,10 @@ class SimpleEnv(_Env):
             )
 
 
+            if getattr(self.cfg, "proactive_contact", False):
+                scene_cfg.ee_contact_forces.history_length = 0
+                scene_cfg.ee_contact_forces.update_period = 0.0
+
             ### add task related objects
             flags = self.cfg.flags or []
             

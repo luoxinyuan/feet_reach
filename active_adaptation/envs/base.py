@@ -203,6 +203,8 @@ class _Env(EnvBase):
         self._debug_draw_callbacks = []
         self._pre_step_callbacks = []
         self._post_step_callbacks = []
+        if callable(getattr(self.command_manager, "post_step", None)):
+            self._post_step_callbacks.append(self.command_manager.post_step)
 
         self._pre_step_callbacks.append(self.command_manager.step)
         # self._update_callbacks.append(self.command_manager.update)
@@ -370,6 +372,8 @@ class _Env(EnvBase):
         # clean up obs
         tensordict = TensorDict({}, self.num_envs, device=self.device)
         tensordict.update(self.observation_spec.zero())
+        if getattr(self.cfg, "observe_on_reset", False):
+            self._compute_observation(tensordict)
 
         return tensordict
 

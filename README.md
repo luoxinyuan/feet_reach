@@ -2,6 +2,22 @@
 
 G1 扶墙脚部 reaching：左手扶墙、右脚支撑、左脚跟踪实时 root 坐标系下的笛卡尔目标。包含参考轨迹生成、teacher / adapt / finetune 训练、固定目标精度评估和网页遥操作。
 
+## Proactive EE tracking（PointNet）
+
+新增双脚支撑、左手 EE tracking 实验：student 输入实时 root 坐标系下的 EE target xyz、本体历史和 PointNet 编码的局部点云，保留 target joint estimator。墙位置独立随机采样，25% 场景无墙；通过 tracking、接触力上升率和持续力惩罚学习接近行为，不使用距离触发的减速规则。
+
+- Crocoddyl 数据集：80 条连续轨迹、18,798 帧，按目标点划分为 56 条训练、24 条验证轨迹。
+- 已通过三阶段 PPO、checkpoint 衔接、student 推理、PointNet 梯度及物理接触反馈的集成检查；尚不代表已验证学会主动减速。
+- 八卡训练，每卡默认 4,096 个环境（共 32,768）；teacher / adapt / finetune 分别为 40 亿 / 10 亿 / 20 亿环境步。
+
+```bash
+bash scripts/train_proactive_ee_pipeline.sh
+```
+
+W&B 项目默认 `wall-foot-reach`，run 名为 `proactive-ee-v1`（后续附加 `-adapt`、`-finetune`）；输出位于 `outputs/proactive-ee/`。当前使用带噪声和缺测的仿真表面点云，尚未接入真实 depth / SLAM。
+
+数据生成、验证及输入约定见 [Proactive EE 说明](scripts/references/README_proactive_ee.md)。数据集和 checkpoint 仍需另行生成或复制，不随 Git 上传。
+
 ## 运行环境
 
 训练和评估需要 Isaac Lab / Isaac Sim、PyTorch，以及本项目依赖。在已配置好的仿真环境中，从项目根目录运行：

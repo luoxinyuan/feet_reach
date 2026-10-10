@@ -67,6 +67,7 @@ class PPOConfig:
     init_noise_scale: float = 1.0  # initial std for actor
     load_noise_scale: float | None = None  # initial std for student actor
 
+    geometry_points: int = 0  # Optional metric point cloud; excluded from VecNorm.
     latent_dim: int = 256
     # joint prediction weight for adapt-phase estimator
     joint_pred_weight: float = 1.0
@@ -173,9 +174,18 @@ class PPOPolicy(TensorDictModuleBase):
         actor_in_keys_train = [OBS_KEY, "priv_feature", OBS_JOINT_KEY]
         actor_in_keys_adapt = [OBS_KEY, "priv_pred", "priv_joint"]
 
+        def geometry_modules():
+            if not self.cfg.geometry_points:
+                return []
+            from ..modules.pointnet import GeometryPointNet
+            return [Mod(GeometryPointNet(self.cfg.geometry_points), ["geometry_"], ["_geometry_latent"])]
+
         def build_actor(in_keys):
+            if self.cfg.geometry_points:
+                in_keys = in_keys + ["_geometry_latent"]
             return ProbabilisticActor(
                 module=Seq(
+                    *geometry_modules(),
                     CatTensors(in_keys, "_actor_inp", del_keys=False, sort=False),
                     Mod(make_mlp([512, 512, 256]), ["_actor_inp"], ["_actor_feature"]),
                     Mod(Actor(self.action_dim, init_noise_scale=self.cfg.init_noise_scale, load_noise_scale=self.cfg.load_noise_scale), ["_actor_feature"], ["loc", "scale"]),
@@ -191,7 +201,8 @@ class PPOPolicy(TensorDictModuleBase):
 
         # ---------------------------------------------------------------------------- critic (shared)
         self.critic = Seq(
-            CatTensors([OBS_KEY, OBS_PRIV_KEY, CRITIC_PRIV_KEY], "_critic_inp", del_keys=False),
+            *geometry_modules(),
+            CatTensors([OBS_KEY, OBS_PRIV_KEY, CRITIC_PRIV_KEY] + (["_geometry_latent"] if self.cfg.geometry_points else []), "_critic_inp", del_keys=False),
             Mod(nn.Sequential(make_mlp([512, 512, 256]), nn.LazyLinear(1)), ["_critic_inp"], ["state_value"]),
         ).to(device)
 
@@ -212,6 +223,17 @@ class PPOPolicy(TensorDictModuleBase):
                 nn.init.zeros_(m.bias)
 
         self.apply(ortho_)
+        if self.cfg.geometry_points:
+            # Preserve useful metric geometry features through the ReLU stack;
+            # the actor's small output initialization must not shrink every
+            # PointNet layer by 100x.
+            from ..modules.pointnet import GeometryPointNet
+            for module in self.modules():
+                if isinstance(module, GeometryPointNet):
+                    for layer in module.modules():
+                        if isinstance(layer, nn.Linear):
+                            nn.init.orthogonal_(layer.weight, gain=1.0)
+                            nn.init.zeros_(layer.bias)
 
         self.world_size = 1
         self.num_updates = 0
@@ -362,7 +384,7 @@ class PPOPolicy(TensorDictModuleBase):
         with torch.no_grad():
             actor = self.actor_teacher if self.cfg.phase == "train" else self.actor_student
             base = actor.module if isinstance(actor, DDP) else actor
-            action_std = base.module[0][2].module.actor_std.detach()
+            action_std = base.module[0][-1].module.actor_std.detach()
             for joint_name, std in zip(self.joint_names, action_std):
                 info[f"actor_std/{joint_name}"] = std
             info["actor_std/mean"] = action_std.mean()
