@@ -5,12 +5,13 @@ No distance-triggered braking or target projection is used.
 import torch
 from active_adaptation.envs.mdp import observation, reward
 from active_adaptation.envs.mdp.commands.foot_reach import WallFootReachCommand
+from active_adaptation.envs.mdp.commands.motion_tracking import _calc_exp_sigma
 from active_adaptation.utils.math import quat_apply_inverse
 from active_adaptation.utils.symmetry import SymmetryTransform
 
 class ProactiveEECommand(WallFootReachCommand):
     def __init__(self, env, *args, geometry_points=128, no_wall_prob=.25,
-                 wall_range=(.40,.50), force_soft=20., force_rate_soft=1000., **kwargs):
+                 wall_range=(.40,.50), force_soft=20., force_rate_soft=500., **kwargs):
         super().__init__(env,*args,**kwargs)
         self.zero_init_prob=1.  # Always approach from a collision-free start.
         self.npoints=geometry_points
@@ -123,6 +124,22 @@ class ProactiveEECommand(WallFootReachCommand):
         return SymmetryTransform(torch.arange(self.npoints*4),torch.ones(self.npoints*4))
 
     @reward
+    def left_ee_tracking(self):
+        """Track only the commanded hand, using the original low-level EE kernel.
+
+        The target is the same root-frame xyz exposed to the student, including
+        external evaluation/teleoperation commands. The right arm is constrained
+        by full-body joint tracking, not an additional Cartesian task.
+        """
+        actual_b = quat_apply_inverse(
+            self.asset.data.root_quat_w,
+            self.asset.data.body_pos_w[:, self.hand_asset] - self.asset.data.root_pos_w,
+        )
+        error = (self.target_ee_pos_b() - actual_b).norm(dim=-1, keepdim=True)
+        return _calc_exp_sigma(error, self.reward_sigma["ee"])
+
+    # Legacy task rewards remain callable for historical checkpoint configs.
+    @reward
     def reach_tracking(self):
         error=(self.target_ee_world()-self.asset.data.body_pos_w[:,self.hand_asset]).square().sum(-1,keepdim=True)
         # Same objective with and without walls. No contact-conditioned switch.
@@ -137,6 +154,7 @@ class ProactiveEECommand(WallFootReachCommand):
 
     @reward
     def contact_force_cost(self):
+        # Legacy checkpoint compatibility; omitted from the current task reward.
         return -((self.peak_force-self.force_soft).clamp_min(0)/self.force_soft).square().unsqueeze(-1)
 
     @reward

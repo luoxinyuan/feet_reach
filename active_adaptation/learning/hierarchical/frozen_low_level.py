@@ -7,6 +7,7 @@ import hydra
 import torch
 import wandb
 import os
+import warnings
 import torch.distributed as dist
 from omegaconf import OmegaConf
 from tensordict import TensorDictBase
@@ -180,6 +181,11 @@ class FrozenLowLevelPolicy:
             raise ValueError(f"Checkpoint {checkpoint_path} does not contain cfg.")
 
         algo_cfg = ckpt_cfg.algo
+        if algo_cfg._target_ == "active_adaptation.learning.ppo.ppo.PPOPolicy":
+            # Older CEER checkpoints predate optional geometry and symmetry flags.
+            from active_adaptation.learning.ppo.ppo import PPOConfig
+            algo_cfg = OmegaConf.merge(OmegaConf.structured(PPOConfig()), algo_cfg)
+            algo_cfg.symmetry_augmentation = False  # Inference never augments data.
         OmegaConf.set_struct(algo_cfg, False)
         if self.phase is not None:
             algo_cfg.phase = self.phase
@@ -197,7 +203,19 @@ class FrozenLowLevelPolicy:
             device=self.device,
             env=self.env,
         )
-        self.policy.load_state_dict(state_dict["policy"], strict=False)
+        # PPO's historical loader turns shape/load errors into warnings. A
+        # partially initialized frozen controller must not run silently.
+        policy_state = dict(state_dict["policy"])
+        if algo_cfg._target_ == "active_adaptation.learning.ppo.ppo.PPOPolicy":
+            # These buffers describe the *training environment* symmetry, not
+            # learned weights. Augmentation is disabled for frozen inference.
+            from active_adaptation.utils.symmetry import SymmetryTransform
+            for name, module in self.policy.named_children():
+                if isinstance(module, SymmetryTransform):
+                    policy_state[name] = module.state_dict()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", message="Failed to load .*")
+            self.policy.load_state_dict(policy_state, strict=True)
         self.policy.requires_grad_(False)
         self.policy.eval()
         self.rollout_policy = self.policy.get_rollout_policy("eval")

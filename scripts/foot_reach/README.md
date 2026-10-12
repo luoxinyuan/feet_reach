@@ -12,6 +12,8 @@ bash scripts/eval_wall_foot_reach.sh \
 
 默认连续测试 20 个最近邻目标，中途不重置。可用 `--points 20` 修改数量，或用 `--targets /path/targets.json` 指定按顺序执行的目标列表。
 
+加 `--random-foot-force` 可在 reaching 左脚脚底中心施加 0–20 N 随机方向外力，使用任务里的随机休息、升力、保持、降力周期；默认关闭。逐帧外力向量和模长写入 `samples.csv`，启用状态与参数写入 `config.json`。
+
 ## 网页遥操作
 
 ```bash
@@ -44,9 +46,10 @@ JSON 格式：`[[0.1, 0.15, -0.5], [0.2, 0.15, -0.4]]`。这里只是格式示�
 
 - `config.json` / `targets.json`：checkpoint、种子、时间与坐标约定、目标。
 - `samples.csv`：逐控制步的目标/实际坐标、欧氏距离误差、各支撑点漂移与失败原因。
+- `samples.csv` 也逐控制步记录左手-墙的过滤法向接触力，以及右支撑脚刚体的净法向接触力：世界坐标系 Fx/Fy/Fz 和向量模长，单位 N。评测结束生成 `contact_forces.png`，显示两组接触力模长随仿真时间的变化。该任务中右脚是地面支撑脚。
 - `metrics.csv`：每个 trial 的指标表，可直接用表格软件打开。
 - `summary.json`：每个点每次重复的平均误差、RMSE、P95、最大误差、三轴 MAE，以及整体稳定成功率/失稳率。单位米，乘 1000 为 mm。
-- `evaluation.mp4`：10 FPS 的真实 Isaac 画面；红球为指令目标，绿球为实际脚底中心，并显示误差。视频按仿真时间播放。
+- `evaluation.mp4`：10 FPS 的 Isaac 画面；红球为指令目标，绿球表示实际脚底中心（为避免被脚模型遮挡，画面中上移 3.5 cm），黄色箭头从左脚外力施加点出发并显示力的方向（箭头长度随外力变化），叠加层显示外力大小、世界坐标分量与目标误差。视频按仿真时间播放。
 
 稳定性每个控制步检查，满足任一条件立即停止序列并将当前目标标记失败：
 
@@ -56,7 +59,7 @@ JSON 格式：`[[0.1, 0.15, -0.5], [0.2, 0.15, -0.4]]`。这里只是格式示�
 - 左扶墙手 body 相对序列开始时 reset 的世界位置漂移 > 0.15 m；
 - 左脚位置或 root state 出现 NaN / Inf。
 
-这些是姿态和漂移代理指标，没有直接检查接触力、手是否仍贴墙或支撑脚是否承重。稳定成功并不表示已经准确到达目标；精度需单独看误差报告。网页仍采用限速平滑移动，失稳自动暂停。
+这些是姿态和漂移代理指标，不会根据接触力自动判定是否稳定。接触曲线通过 Isaac Lab 过滤传感器读取左手与墙的接触；右支撑脚取 `right_ankle_roll_link` 的未过滤净接触力，因为部分 PhysX 版本不支持把全局 `/World/ground` 平面作为过滤目标。报告的是法向接触力，不包含切向摩擦力。稳定成功并不表示已经准确到达目标；精度需单独看误差报告。网页仍采用限速平滑移动，失稳自动暂停。
 
 ## VS Code 远程网页
 
@@ -69,3 +72,21 @@ HTTP 线程只接收指令/传输图像，Isaac 和推理始终在主线程运�
 ### 失稳后继续运行
 
 加 `--continue-on-instability` 可关闭失稳触发的提前停止，仍记录失败原因，并连续跑完所有目标，不重置。完整 hold 窗口的误差仍会记录，包括失稳期间的数据；查看精度时需结合 `failed` / `success` 判断。`all_targets_evaluated` 表示所有窗口均已执行，`sequence_completed` 仍要求全程稳定。此选项用于固定点评估，网页失稳暂停逻辑不变。
+
+### No-wall V1 baseline
+
+`cfg/task/G1/G1_foot_reach_no_wall.yaml` removes the physical wall while retaining
+V1 motion references, hand/foot tracking rewards, observations and network settings.
+Foot external forces are disabled and the V2 privileged force observation is omitted.
+The three phases use 4B / 1B / 2B environment frames in total across eight GPUs:
+
+```bash
+bash scripts/train_foot_reach_no_wall_pipeline.sh
+```
+
+W&B project: `wall-foot-reach`; default run names: `v1-no-wall`,
+`v1-no-wall-adapt`, `v1-no-wall-finetune`. Outputs and the latest-pipeline pointer
+are isolated under `outputs/foot-reach-no-wall/`.
+
+The no-wall pipeline defaults to 4,096 environments per GPU (32,768 across eight GPUs).
+Set `NUM_ENVS=1024` to reproduce the original V1 parallelism; total frame budgets stay unchanged.

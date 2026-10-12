@@ -68,10 +68,31 @@ class SimpleEnv(_Env):
                 history_length=3,
             )
 
-
             if getattr(self.cfg, "proactive_contact", False):
                 scene_cfg.ee_contact_forces.history_length = 0
                 scene_cfg.ee_contact_forces.update_period = 0.0
+
+            # The foot-reach evaluator filters hand forces to the task wall.
+            # For the right support foot it uses the existing unfiltered
+            # ankle sensor, since GPU filtering against the global ground
+            # plane is unsupported in some Isaac Sim / PhysX versions.
+            if getattr(self.cfg, "eval_contact_forces", False):
+                objects = self.cfg.objects or []
+                wall_names = [
+                    str(obj.get("name")) for obj in objects
+                    if obj.get("type") == "wall" and obj.get("name")
+                ]
+                if len(wall_names) > 1:
+                    raise ValueError(
+                        "Contact-force evaluation supports at most one wall object; "
+                        f"found {wall_names}"
+                    )
+                if wall_names:
+                    scene_cfg.eval_left_hand_wall_force = ContactSensorCfg(
+                        prim_path="{ENV_REGEX_NS}/Robot/left_hand_mimic",
+                        filter_prim_paths_expr=[f"{{ENV_REGEX_NS}}/{wall_names[0]}"],
+                        history_length=0,
+                    )
 
             ### add task related objects
             flags = self.cfg.flags or []

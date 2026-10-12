@@ -11,7 +11,7 @@ max_episode_length: 500
 robot:
   name: g1_col_full
 flags: []
-# Contact-aware EE tracking; nominal joint labels supervise the estimator only.
+# Whole-body reference tracking; joint labels also supervise the student estimator.
 objects:
   - type: wall
     name: reach_wall
@@ -29,8 +29,7 @@ command:
   geometry_points: 128
   no_wall_prob: 0.25
   wall_range: [0.40, 0.50]
-  force_soft: 20.0
-  force_rate_soft: 1000.0
+  force_rate_soft: 500.0
   student_train: false
   foot_force:
     enabled: false
@@ -52,17 +51,18 @@ command:
     root_ang_vel: 0.0
     joint_pos: 0.0
     joint_vel: 0.0
+  # Original low-level tracking scales; all 29 joints are selected above.
   reward_sigma:
-    root_pos: [0.08]
-    root_vel: [0.5]
-    root_rot: [0.3]
-    root_ang_vel: [1.0]
-    keypoint: [0.1]
-    lower_keypoint: [0.1]
-    joint_pos: [0.15]
-    joint_vel: [1.0]
-    ee: [0.06]
-    ee_rot: [0.3]
+    root_pos: [0.3]
+    root_vel: [1.0, 0.5]
+    root_rot: [1.0, 0.5]
+    root_ang_vel: [3.0]
+    keypoint: [0.3]
+    lower_keypoint: [0.3]
+    joint_pos: [0.4, 0.2]
+    joint_vel: [2.0, 1.0]
+    ee: [0.2]
+    ee_rot: [1.0, 0.5]
     feet: [0.06]
 observation:
   policy:
@@ -87,22 +87,33 @@ observation:
     applied_torque: {}
   priv_critic:
     cum_error: {}
+# Original low-level tracking/loco rewards; EE tracking is task-left-hand only.
+# Legacy impedance rewards require virtual force targets and are not used here.
 reward:
   _student_train_: false
   tracking:
-    reach_tracking: {weight: 5.0}
-    double_support_tracking: {weight: 3.0}
-    contact_force_cost: {weight: 0.5}
+    root_pos_tracking: {weight: 0.5}
+    root_rot_tracking: {weight: 0.5}
+    root_vel_tracking: {weight: 1.0}
+    root_ang_vel_tracking: {weight: 1.0}
+    joint_pos_tracking: {weight: 1.0}
+    joint_vel_tracking: {weight: 0.5}
+    left_ee_tracking: {weight: 2.0}
+    ee_rot_tracking: {weight: 0.0, enabled: false}
     contact_jump_cost: {weight: 0.1}
-    root_pos_tracking: {weight: 2.0}
-    root_rot_tracking: {weight: 1.0}
-    root_vel_tracking: {weight: 0.5}
-    root_ang_vel_tracking: {weight: 0.5}
   loco:
-    survival: {weight: 1.0}
-    joint_vel_l2: {weight: 0.0005, joint_names: ".*"}
-    action_rate_l2: {weight: 0.1}
-    joint_pos_limits: {weight: 1.0, joint_names: ".*", soft_factor: 0.9}
+    survival: {weight: 5.0, enabled: true}
+    impact_force_l2: {weight: 4.0, enabled: true, body_names: .*ankle_roll_link}
+    feet_slip: {weight: 2.0, enabled: true, body_names: .*ankle_roll_link}
+    joint_vel_l2: {weight: 0.0005, enabled: true, joint_names: .*}
+    action_rate_l2: {weight: 0.2, enabled: true}
+    feet_air_time_ref:
+      weight: 10.0
+      enabled: true
+      body_names: [left_ankle_roll_link, right_ankle_roll_link]
+      thres: 0.8
+    joint_pos_limits: {weight: 1.0, joint_names: .*, soft_factor: 0.9, enabled: true}
+    feet_contact_count: {weight: 1.0, enabled: false, body_names: .*ankle_roll_link}
 randomization: {}
 termination:
   cum_error: {thres: 1.0, min_steps: 50}

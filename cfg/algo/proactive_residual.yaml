@@ -1,0 +1,8 @@
+# @package algo
+defaults:
+  - root_student_ppo
+  - _self_
+name: proactive_residual
+geometry_points: 128
+geometry_latent: 64
+geometry_key: geometry_

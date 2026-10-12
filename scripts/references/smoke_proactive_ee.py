@@ -4,7 +4,7 @@ os.environ.setdefault('ACTIVE_ADAPTATION_DISABLE_TORCH_COMPILE','1')
 import sys,json,argparse
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT))
-p=argparse.ArgumentParser();p.add_argument('--phase',default='train');p.add_argument('--checkpoint');args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--phase',default='train');p.add_argument('--checkpoint');p.add_argument('--output',type=Path,default=ROOT/'artifacts/ee_reach');args=p.parse_args()
 import torch,hydra
 from omegaconf import OmegaConf
 import active_adaptation.learning
@@ -20,6 +20,44 @@ try:
  from active_adaptation.learning.modules.pointnet import GeometryPointNet
  env,policy,vecnorm,_=make_env_policy(cfg);env.train();carry=env.reset();cmd=env.command_manager
  assert carry['geometry_'].shape==(8,512)
+ assert carry['joint_target'].shape==(8,29)
+ assert len(cmd.joint_idx_asset)==29 and len(set(cmd.joint_idx_asset.tolist()))==29
+ # One Cartesian task, matching the deployed left-hand xyz command.
+ reward_funcs=env.reward_groups['tracking'].funcs
+ assert 'left_ee_tracking' in reward_funcs and reward_funcs['left_ee_tracking'].weight==2.
+ assert not any(k in reward_funcs for k in ['ee_tracking','reach_tracking','double_support_tracking'])
+ assert cmd.target_ee_pos_b().shape==(8,3)
+ actual_b=quat_apply_inverse(cmd.asset.data.root_quat_w,cmd.asset.data.body_pos_w[:,cmd.hand_asset]-cmd.asset.data.root_pos_w)
+ cmd.set_target_ee_pos_b(actual_b)
+ torch.testing.assert_close(cmd.left_ee_tracking(),torch.ones(8,1,device=cmd.device),atol=1e-5,rtol=1e-5)
+ cmd.set_target_ee_pos_b(actual_b+torch.tensor([.2,0.,0.],device=cmd.device))
+ torch.testing.assert_close(cmd.left_ee_tracking(),torch.full((8,1),float(torch.exp(torch.tensor(-1.))),device=cmd.device))
+ right=cmd.dataset.body_names.index('right_hand_mimic')
+ saved_right=cmd._motion.body_pos_w[:,0,right].clone();left_reward=cmd.left_ee_tracking().clone()
+ cmd._motion.body_pos_w[:,0,right]+=1.
+ torch.testing.assert_close(cmd.left_ee_tracking(),left_reward)
+ cmd._motion.body_pos_w[:,0,right]=saved_right
+ cmd.set_target_ee_pos_b(None)
+ # Every joint, including the non-reaching arm, must affect reference tracking.
+ original=cmd._motion.joint_pos[:,0,cmd.joint_idx_motion].clone()
+ baseline=cmd.joint_pos_tracking().clone()
+ for asset_id,motion_id in zip(cmd.joint_idx_asset.tolist(),cmd.joint_idx_motion.tolist()):
+  target=cmd._motion.joint_pos[:,0,motion_id].clone()
+  direction=torch.where(target>=cmd.asset.data.joint_pos[:,asset_id],1.,-1.)
+  cmd._motion.joint_pos[:,0,motion_id]=target+.1*direction
+  assert (cmd.joint_pos_tracking()<baseline).all(),asset_id
+  cmd._motion.joint_pos[:,0,motion_id]=target
+ torch.testing.assert_close(cmd._motion.joint_pos[:,0,cmd.joint_idx_motion],original)
+ # Rate-only contact objective: no force-magnitude cost is registered.
+ assert 'contact_force_cost' not in env.reward_groups['tracking'].funcs
+ assert cmd.force_rate_soft==500.
+ saved_force=cmd.peak_force.clone();saved_rate=cmd.peak_rate.clone()
+ for rate,expected_cost in [(0.,0.),(499.,0.),(500.,0.),(1000.,-1.),(1500.,-4.)]:
+  cmd.peak_rate.fill_(rate)
+  for force in (0.,1000.):
+   cmd.peak_force.fill_(force)
+   torch.testing.assert_close(cmd.contact_jump_cost(),torch.full((8,1),expected_cost,device=cmd.device))
+ cmd.peak_force.copy_(saved_force);cmd.peak_rate.copy_(saved_rate)
  raw=cmd.geometry_cloud();torch.testing.assert_close(carry['geometry_'],raw)
  expected=quat_apply_inverse(cmd.asset.data.root_quat_w,cmd.target_ee_world()-cmd.asset.data.root_pos_w)
  torch.testing.assert_close(cmd.target_ee_pos_b(),expected)
@@ -54,7 +92,7 @@ try:
   grads=[p.grad.abs().sum().item() for m in actor.modules() if isinstance(m,GeometryPointNet) for p in m.parameters() if p.grad is not None]
   assert sum(grads)>0, 'Actor PointNet has no PPO gradient'
  if args.phase!='train':
-  public=carry.select('policy','geometry_','is_init',strict=False).clone();rollout(public);assert public['action'].shape==(8,29)
+  public=carry.select('policy','geometry_','is_init',strict=False).clone();rollout(public);assert public['action'].shape==(8,29);assert public['priv_joint'].shape==(8,29)
  # Check actual collision force by holding root/legs and advancing the nominal
  # reference with the existing PD controller. This is NOT a trained evaluation.
  carry=env.reset();peak=0.;jump=0.
@@ -67,7 +105,7 @@ try:
    peak=max(peak,cmd.peak_force.max().item());jump=max(jump,cmd.peak_rate.max().item())
  assert peak>1.,('No physical hand contact measured',peak)
  assert jump>0
- output=ROOT/'artifacts/ee_reach';output.mkdir(parents=True,exist_ok=True)
+ output=args.output;output.mkdir(parents=True,exist_ok=True)
  report=dict(phase=args.phase,initial_error_m=error,force_peak_N=peak,force_rate_peak_N_s=jump,metrics={k:float(v) for k,v in info.items()})
  (output/f'smoke_{args.phase}.json').write_text(json.dumps(report,indent=2))
  torch.save({'policy':policy.state_dict(),'vecnorm':vecnorm.state_dict(),'cfg':cfg},output/f'smoke_{args.phase}.pt')

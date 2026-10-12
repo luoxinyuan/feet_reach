@@ -53,6 +53,9 @@ class RootStudentPPOConfig:
     vecnorm: str | None = None
     phase: str = "train"  # train | adapt | finetune
     direct_pred_weight: float = 1.0
+    geometry_points: int = 0
+    geometry_latent: int = 64
+    geometry_key: str = "geometry_"
 
     in_keys: List[str] = field(default_factory=lambda: ["hl_policy"])
     priv_in_keys: List[str] = field(default_factory=lambda: ["hl_priv"])
@@ -123,6 +126,13 @@ class RootStudentPPOPolicy(TensorDictModuleBase):
         priv_in_keys = list(cfg.priv_in_keys)
         direct_priv_keys = list(cfg.get("direct_priv_keys", []))
         critic_in_keys = list(cfg.critic_in_keys)
+        self.geometry_points = int(cfg.get("geometry_points", 0))
+        self.geometry_key = cfg.get("geometry_key", "geometry_")
+        if self.geometry_points:
+            if observation_spec[self.geometry_key].shape[-1] != self.geometry_points * 4:
+                raise ValueError("Geometry input must pack root-frame xyz + mask per point")
+            if self.geometry_key in actor_in_keys or self.geometry_key in critic_in_keys:
+                raise ValueError("Pass geometry separately through PointNet, not flat MLP inputs")
         self.direct_priv_keys = direct_priv_keys
         self.direct_pred_weight = float(cfg.get("direct_pred_weight", 1.0))
         self.direct_pred_key = "direct_priv_pred"
@@ -193,7 +203,8 @@ class RootStudentPPOPolicy(TensorDictModuleBase):
         self.actor_student = self._build_actor(actor_in_keys + student_extra_keys)
 
         self.critic = Seq(
-            CatTensors(critic_in_keys, "_critic_inp", del_keys=False, sort=False),
+            *self._geometry_modules(),
+            CatTensors(critic_in_keys + (["_geometry_latent"] if self.geometry_points else []), "_critic_inp", del_keys=False, sort=False),
             Mod(
                 nn.Sequential(make_mlp([512, 256], norm=cfg.layer_norm), nn.LazyLinear(1)),
                 ["_critic_inp"],
@@ -274,10 +285,20 @@ class RootStudentPPOPolicy(TensorDictModuleBase):
             return params
         return encoder.parameters()
 
+    def _geometry_modules(self):
+        if not self.geometry_points:
+            return []
+        from active_adaptation.learning.modules.pointnet import GeometryPointNet
+        return [Mod(
+            GeometryPointNet(self.geometry_points, int(self.cfg.get("geometry_latent", 64))),
+            [self.geometry_key], ["_geometry_latent"],
+        )]
+
     def _build_actor(self, in_keys: list[str]):
         return ProbabilisticActor(
             module=Seq(
-                CatTensors(in_keys, "_actor_inp", del_keys=False, sort=False),
+                *self._geometry_modules(),
+                CatTensors(in_keys + (["_geometry_latent"] if self.geometry_points else []), "_actor_inp", del_keys=False, sort=False),
                 Mod(make_mlp([512, 256], norm=self.cfg.layer_norm), ["_actor_inp"], ["_actor_feature"]),
                 Mod(
                     Actor(

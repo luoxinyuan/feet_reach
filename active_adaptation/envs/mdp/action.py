@@ -186,9 +186,11 @@ class HierarchicalRootCommand(ActionManager):
         low_policy_command_slice: Tuple[int, int] | None = (1, 7),
         low_policy_obs_key: str | None = "policy",
         override_root_command: bool = False,
+        apply_root_command: bool = True,
         **kwargs,
     ):
         super().__init__(env)
+        self.apply_root_command = apply_root_command
         self.root_command_cfg = dict(root_command or {})
         self.root_command_enabled = self.root_command_cfg.get("enabled", True)
         self.root_command_passthrough_reference = self.root_command_cfg.get("passthrough_reference", False)
@@ -218,12 +220,14 @@ class HierarchicalRootCommand(ActionManager):
             self.ee_command_dim = 0
         elif self.ee_command_mode == "pose_delta":
             self.ee_command_dim = 12
+        elif self.ee_command_mode == "left_pos_delta":
+            self.ee_command_dim = 3
         elif self.ee_command_mode == "pos_delta":
             self.ee_command_dim = 6
         else:
             raise ValueError(
                 "HierarchicalRootCommand ee_command.mode must be one of "
-                f"['pose_delta', 'pos_delta'], got {self.ee_command_mode!r}."
+                f"['pose_delta', 'pos_delta', 'left_pos_delta'], got {self.ee_command_mode!r}."
             )
         self.feet_command_cfg = dict(feet_command or {})
         self.feet_command_enabled = self.feet_command_cfg.get("enabled", False)
@@ -428,7 +432,8 @@ class HierarchicalRootCommand(ActionManager):
                 -1, self.ee_command_buf.shape[1], -1
             )
         if hasattr(self.env.command_manager, "set_root_command"):
-            self.env.command_manager.set_root_command(self.root_command)
+            if self.apply_root_command:
+                self.env.command_manager.set_root_command(self.root_command)
         if self.ee_command_enabled and hasattr(self.env.command_manager, "set_root_and_wrist_6d_command"):
             self.env.command_manager.set_root_and_wrist_6d_command(self.ee_command)
         if self.feet_command_enabled and hasattr(self.env.command_manager, "set_feet_pos_b_command"):
@@ -489,6 +494,8 @@ class HierarchicalRootCommand(ActionManager):
             rot_delta = action[:, 6:12].reshape(self.num_envs, 2, 3) * self.ee_rot_scale
             command[:, :6] = reference[:, :6] + pos_delta.reshape(self.num_envs, 6)
             command[:, 6:12] = reference[:, 6:12] + rot_delta.reshape(self.num_envs, 6)
+        elif self.ee_command_mode == "left_pos_delta":
+            command[:, :3] = reference[:, :3] + action * self.ee_pos_scale[:, 0]
         elif self.ee_command_mode == "pos_delta":
             pos_delta = action.reshape(self.num_envs, 2, 3) * self.ee_pos_scale
             command[:, :6] = reference[:, :6] + pos_delta.reshape(self.num_envs, 6)
@@ -547,11 +554,12 @@ class HierarchicalRootCommand(ActionManager):
                 cursor += self.joint_residual_dim
             if self.override_root_command:
                 self._set_default_root_command()
-            if not hasattr(self.env.command_manager, "set_root_command"):
+            if self.apply_root_command and not hasattr(self.env.command_manager, "set_root_command"):
                 raise RuntimeError(
                     "HierarchicalRootCommand requires a command manager with set_root_command()."
                 )
-            self.env.command_manager.set_root_command(self.root_command)
+            if self.apply_root_command:
+                self.env.command_manager.set_root_command(self.root_command)
             if self.ee_command_enabled:
                 if not hasattr(self.env.command_manager, "set_root_and_wrist_6d_command"):
                     raise RuntimeError(

@@ -4,7 +4,7 @@ G1 扶墙脚部 reaching：左手扶墙、右脚支撑、左脚跟踪实时 root
 
 ## Proactive EE tracking（PointNet）
 
-新增双脚支撑、左手 EE tracking 实验：student 输入实时 root 坐标系下的 EE target xyz、本体历史和 PointNet 编码的局部点云，保留 target joint estimator。墙位置独立随机采样，25% 场景无墙；通过 tracking、接触力上升率和持续力惩罚学习接近行为，不使用距离触发的减速规则。
+新增双脚支撑、左手 EE tracking 实验：student 输入实时 root 坐标系下的 EE target xyz、本体历史和 PointNet 编码的局部点云，保留 target joint estimator。墙位置独立随机采样，25% 场景无墙；通过 tracking、超过 500 N/s 的接触力正向上升率惩罚（不惩罚接触力绝对值）学习接近行为，不使用距离触发的减速规则。
 
 - Crocoddyl 数据集：80 条连续轨迹、18,798 帧，按目标点划分为 56 条训练、24 条验证轨迹。
 - 已通过三阶段 PPO、checkpoint 衔接、student 推理、PointNet 梯度及物理接触反馈的集成检查；尚不代表已验证学会主动减速。
@@ -15,6 +15,8 @@ bash scripts/train_proactive_ee_pipeline.sh
 ```
 
 W&B 项目默认 `wall-foot-reach`，run 名为 `proactive-ee-v1`（后续附加 `-adapt`、`-finetune`）；输出位于 `outputs/proactive-ee/`。当前使用带噪声和缺测的仿真表面点云，尚未接入真实 depth / SLAM。
+
+当前配置恢复原 `G1_3kp` 的 tracking / locomotion reward 权重及误差尺度，关节位置和速度 tracking 覆盖全部 29 个关节；EE reward 仅跟踪任务左手（权重 2.0、沿用原误差函数），移除额外 reaching 5.0 和双脚支撑 3.0；附加项仅保留接触力正向增长率惩罚。Student 保留 29 维 whole-body joint estimator。此前 proactive v1 checkpoint 使用的是缺少关节 tracking 的旧目标，修改配置不会改变已有模型。
 
 数据生成、验证及输入约定见 [Proactive EE 说明](scripts/references/README_proactive_ee.md)。数据集和 checkpoint 仍需另行生成或复制，不随 Git 上传。
 
@@ -67,3 +69,5 @@ bash scripts/eval_wall_foot_reach.sh \
 `dataset/`、`artifacts/`、`outputs/`、W&B 日志及训练 checkpoint 不在版本控制中。新机器需要先生成或复制评估数据，再运行上述入口。
 
 旧版项目说明保留在 [README_legacy.md](README_legacy.md)，供历史配置和原框架使用方式参考。
+
+Frozen-CEER 两层 proactive EE residual：high-level 输出左手 xyz residual，接入 PointNet 点云，使用 proactive EE 轨迹；去掉全身 tracking reward，保留 EE、力增长率和 locomotion 奖励。运行 `bash scripts/train_proactive_residual_pipeline.sh`，仅 teacher → adapt 两阶段，默认八卡、每卡 4096 环境。详见 [配置与验证说明](scripts/references/README_proactive_residual.md)。
