@@ -71,6 +71,21 @@ class SimpleEnv(_Env):
             if getattr(self.cfg, "proactive_contact", False):
                 scene_cfg.ee_contact_forces.history_length = 0
                 scene_cfg.ee_contact_forces.update_period = 0.0
+                wall_names = [
+                    str(obj.get("name")) for obj in (self.cfg.objects or [])
+                    if obj.get("type") == "wall" and obj.get("name")
+                ]
+                if len(wall_names) != 1:
+                    raise ValueError(
+                        "Proactive contact reward requires exactly one wall object; "
+                        f"found {wall_names}"
+                    )
+                scene_cfg.ee_wall_contact_forces = ContactSensorCfg(
+                    prim_path="{ENV_REGEX_NS}/Robot/left_hand_mimic",
+                    filter_prim_paths_expr=[f"{{ENV_REGEX_NS}}/{wall_names[0]}"],
+                    history_length=0,
+                    update_period=0.0,
+                )
 
             # The foot-reach evaluator filters hand forces to the task wall.
             # For the right support foot it uses the existing unfiltered

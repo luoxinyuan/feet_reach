@@ -60,3 +60,110 @@ Validation scripts: `tests/test_root_student_pointnet.py` (CPU) and
 The latter verifies exact learned CEER weights, frozen parameters across updates,
 observation order, target isolation, three-dimensional action decoding, PointNet
 PPO gradients, finite training updates and public-only student inference.
+
+## Wall evaluation: adapt 20261012_114404
+
+The first evaluation attempt stalled because the high-level residual rollout only
+passed `hl_policy`, while the frozen CEER action manager only built its required
+`policy` observation when that key was already present. The low-level observation
+normalizer therefore received a TensorDict without `policy`. The action manager now
+computes the configured low-level observation directly from the live environment.
+
+One wall-only trial ran with seed 42 (3 s reaching, 2 s hold; force samples at
+50 Hz while the simulator advances at 200 Hz). The trial completed
+without a stability failure, but tracking failed: mean hold error was 89.6 mm and
+0% of hold samples were within 3 cm. Filtered hand-wall force remained 0 N because
+the hand did not contact the wall; this is not evidence of zero force under contact.
+This is a single diagnostic trial, not the full multi-target or paired wall/no-wall
+protocol.
+
+## Contact requirement reward
+
+Run `20261012_232749` added the first `contact_requirement` term while leaving
+the EE tracking and impact penalties unchanged. A wall-filtered left-hand sensor
+latches contact at 1 N across physics substeps. Contact was required when the
+target was more than 5 mm behind the wall. With equal ±1 scores and weight 2.0,
+the required state appeared on only 6–7% of training steps; the term's logged
+mean magnitude was about 4% of EE tracking. The resulting policy did not contact
+the wall in the seed-42 evaluation.
+
+The new training configuration raises wall-present probability to 80%, samples
+wall planes from x=0.38–0.44 m rather than 0.40–0.50 m, and uses scores of +1 for
+required contact, −1.5 for missing required contact, and −1 for unexpected
+contact, with weight 3.0. Based on the stored training target distribution, this
+should raise required-contact exposure to about 16% of control steps. The existing
+loading-rate impact penalty remains unchanged. New metrics split required hit,
+required miss, and unexpected contact rates. The 5 mm target margin and 1 N
+contact threshold are unchanged.
+
+The new run `20261013_095443` completed in tmux session `contact-tradeoff-v2`
+with 8 GPUs, 4096 environments per GPU, 4 billion teacher frames, and 1 billion
+adaptation frames. Its final adapt logs report a 19.3% required-contact fraction,
+98.1% hit rate among required steps, and 1.7% unexpected contact among
+non-required steps. The contact requirement was learned in training. Checkpoints
+and logs are under
+[`outputs/proactive-residual/20261013_095443`](../../outputs/proactive-residual/20261013_095443).
+
+### Contact-tradeoff checkpoint wall evaluation
+
+The final adapt checkpoint was evaluated once against the wall (seed 42, wall
+plane x=0.44 m). The rollout completed without a stability failure, but the
+reaching target was not achieved: mean hold error was 178.9 mm and 0% of hold
+samples were within 3 cm. No left-hand wall contact was detected, so measured
+peak force was 0 N. This trial does not show that the contact requirement was
+learned; it is one diagnostic rollout, not a multi-seed evaluation.
+
+Artifacts: [video](../../artifacts/proactive_ee_eval/contact_tradeoff_wall/wall/repeat_0/evaluation.mp4), [force/tracking curves](../../artifacts/proactive_ee_eval/contact_tradeoff_wall/paired_curves.png), [summary](../../artifacts/proactive_ee_eval/contact_tradeoff_wall/summary.json), [samples](../../artifacts/proactive_ee_eval/contact_tradeoff_wall/wall/repeat_0/samples.csv).
+
+### Contact-tradeoff v2 wall evaluation
+
+One wall-only trial with seed 42 (wall plane x=0.44 m) completed without a
+stability failure and made wall contact 0.18 s after the target command. Mean
+hold error was 122.5 mm, with 0% of samples within 3 cm. Peak filtered hand-wall
+force was 132.3 N and steady hold force was 14.3 N. This confirms contact in this
+single rollout, but target tracking remains poor and the impact peak is high.
+
+Artifacts: [video](../../artifacts/proactive_ee_eval/contact_tradeoff_v2_wall/wall/repeat_0/evaluation.mp4), [force/tracking curves](../../artifacts/proactive_ee_eval/contact_tradeoff_v2_wall/paired_curves.png), [summary](../../artifacts/proactive_ee_eval/contact_tradeoff_v2_wall/summary.json), [samples](../../artifacts/proactive_ee_eval/contact_tradeoff_v2_wall/wall/repeat_0/samples.csv).
+
+Artifacts: [video](../../artifacts/proactive_ee_eval/residual_adapt_wall/wall/repeat_0/evaluation.mp4), [force/tracking curves](../../artifacts/proactive_ee_eval/residual_adapt_wall/paired_curves.png), [summary](../../artifacts/proactive_ee_eval/residual_adapt_wall/summary.json), [samples](../../artifacts/proactive_ee_eval/residual_adapt_wall/wall/repeat_0/samples.csv).
+
+## Low-level only wall control (zero residual)
+
+Using the same residual checkpoint, target, wall position, and evaluation protocol,
+the high-level residual actor was bypassed and its 3D residual fixed at zero. The
+frozen low-level policy remained active. All three trials (seeds 42–44) contacted
+the wall, at 0.14 s after the target command, with no stability failure. Filtered
+hand-wall normal force peaked at 28.6–36.4 N (mean 32.0 N); hold-period steady
+force was 20.7–21.9 N (mean 21.1 N). Mean hold tracking error was 96.6–122.5 mm,
+so none reached the 3 cm tracking criterion. Force samples are logged at 50 Hz
+(physics at 200 Hz).
+
+The directly matched seed-42 residual trial did not contact the wall and measured
+0 N, with 89.6 mm mean hold error. With zero residual, seed 42 contacted at 0.14 s,
+peaked at 31.0 N, settled to 21.9 N, and had 113.6 mm mean hold error. Thus the
+low-level-only condition contacts the wall, but this comparison does not establish
+intentional force regulation; the high, variable contact force and poor target
+tracking warrant treating it as incidental contact in this run.
+
+Artifacts: [seed-42 video](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_0/evaluation.mp4), [seed-43 video](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_1/evaluation.mp4), [seed-44 video](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_2/evaluation.mp4), [seed-42 force/tracking curves](../../artifacts/proactive_ee_eval/lowlevel_only_wall/paired_curves.png), [all-trial summary](../../artifacts/proactive_ee_eval/lowlevel_only_wall/summary.json), [seed-42 samples](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_0/samples.csv).
+
+## Delayed contact-miss cost
+
+The next reward version removes the persistent positive reward for required
+contact. Once the target is more than 5 mm behind the wall, the policy gets 8
+control steps (160 ms at 50 Hz) to approach. If contact is still absent, the
+miss cost ramps linearly over 8 more steps to a maximum of 0.5 weighted reward
+units per step. At the normal 20 ms reward timestep, that maximum contributes
+−0.01 per step. Contact turns this cost off; if contact is lost while contact is
+still required, the cost resumes at the level set by elapsed time. Unexpected
+contact retains a score of −3, and the existing loading-rate cost (soft threshold
+500 N/s, weight 0.1) is unchanged. There is no absolute-force penalty.
+
+The 160 ms grace and 160 ms ramp are based on the stored target clips: the
+target first moves behind the wall around 0.74 s from clip start (10th–90th
+percentile 0.54–0.98 s), and required-contact intervals last a median 2.14 s.
+At full miss cost, a 0.6 s delay costs about as much as one peak-step loading
+rate penalty estimated from the prior v2 evaluation. This keeps a missed
+contact costly over time while allowing the arm to slow down for its first
+touch. New metrics report late misses and required-state age alongside hit/miss
+rates.

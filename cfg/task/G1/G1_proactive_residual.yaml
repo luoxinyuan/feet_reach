@@ -72,11 +72,21 @@ action:
 command:
   _target_: active_adaptation.envs.mdp.commands.proactive_residual.ProactiveResidualCommand
   geometry_points: 128
-  no_wall_prob: 0.25
+  # More wall exposure and a forward-shifted wall range raise contact-required
+  # frames while keeping the initial hand about 5 cm clear of the nearest wall.
+  no_wall_prob: 0.20
   wall_range:
-  - 0.4
-  - 0.5
+  - 0.38
+  - 0.44
   force_rate_soft: 500.0
+  contact_threshold_N: 1.0
+  contact_target_margin_m: 0.005
+  # Give the hand 160 ms to approach after the target moves behind the wall,
+  # then ramp missed-contact cost over another 160 ms to 0.5 reward units.
+  contact_grace_steps: 8
+  contact_miss_ramp_steps: 8
+  contact_late_penalty_max: 0.5
+  unexpected_contact_score: 3.0
   student_train: false
   foot_force:
     enabled: false
@@ -213,6 +223,8 @@ reward:
       weight: 2.0
     contact_jump_cost:
       weight: 0.1
+    contact_requirement:
+      weight: 1.0
   loco:
     survival:
       weight: 5.0

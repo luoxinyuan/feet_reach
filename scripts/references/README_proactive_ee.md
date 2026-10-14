@@ -117,7 +117,7 @@ PointNet input: this is an OOD diagnostic, not a separately trained blind policy
 No automatic resets occur within trials, and instability stops that trial.
 Student receives only normalized proprioception/EE target and metric geometry.
 
-The experiment folder contains the checkpoint hash, targets/protocol, 200 Hz
+The experiment folder contains the checkpoint hash, targets/protocol, 50 Hz
 samples, JSON summaries, plots and per-condition MP4 recordings. Red is the
 command target, green is the actual hand marker; screen rings remain visible
 when occluded by the wall. Contact force is filtered to the hand-wall pair.
@@ -173,7 +173,8 @@ the original step-command protocol and is reported separately.
 
 Videos use a side-oblique camera, through-wall red target/green hand rings,
 and an x-z section inset. The green dot is the hand body marker, not an exact
-collision manifold point. Video is 25 FPS and force logs are 200 Hz.
+collision manifold point. Video defaults to 25 FPS; wall force logs are sampled
+at 50 Hz while physics runs at 200 Hz.
 `planned_trajectory.csv` saves the world-space schedule.
 
 `--continue-on-instability` is a separate diagnostic mode: retain every original

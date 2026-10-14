@@ -30,7 +30,7 @@ try:
     torch.testing.assert_close(value.cpu(),ck['policy'][name][key].cpu(),rtol=0,atol=0)
  assert env.observation_spec['policy'].shape[-1]==ck['vecnorm']['_extra_state']['policy_sum'].shape[-1]
  funcs=env.reward_groups['tracking'].funcs
- assert set(funcs)=={'left_ee_tracking','contact_jump_cost'},set(funcs)
+ assert set(funcs)=={'left_ee_tracking','contact_jump_cost','contact_requirement'},set(funcs)
  nominal=cmd.target_ee_pos_b().clone();reference=act._get_ee_command_reference().clone();before=cmd.left_ee_tracking().clone()
  decoded=act._decode_ee_command(torch.ones(8,3,device=cmd.device))
  torch.testing.assert_close(decoded[:,3:],reference[:,3:])

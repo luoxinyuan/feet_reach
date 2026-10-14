@@ -575,10 +575,15 @@ class HierarchicalRootCommand(ActionManager):
                     )
                 self.env.command_manager.set_feet_pos_b_command(self.feet_command)
             low_td = tensordict.clone()
-            if self.low_policy_obs_key is not None and self.low_policy_obs_key in low_td.keys():
+            if self.low_policy_obs_key is not None:
                 if self.low_policy_obs_key in self.env.observation_funcs:
+                    # Rollout callers may pass only a high-level observation
+                    # group (for example ``hl_policy``). Build the frozen
+                    # low-level policy observation directly from the live env
+                    # instead of silently passing a TensorDict without its
+                    # required ``policy`` key.
                     low_td["policy"] = self.env.observation_funcs[self.low_policy_obs_key]._compute()
-                else:
+                elif self.low_policy_obs_key in low_td.keys():
                     low_td["policy"] = low_td[self.low_policy_obs_key].clone()
             if self.low_policy_command_slice is not None:
                 command = self.env.command_manager.command()
