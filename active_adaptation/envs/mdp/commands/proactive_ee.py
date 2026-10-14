@@ -14,7 +14,7 @@ class ProactiveEECommand(WallFootReachCommand):
                  wall_range=(.40,.50), force_soft=20., force_rate_soft=500.,
                  contact_threshold_N=1., contact_target_margin_m=.005,
                  contact_grace_steps=8, contact_miss_ramp_steps=8,
-                 contact_late_penalty_max=.5,
+                 contact_late_penalty_max=1.5,
                  unexpected_contact_score=3.0, **kwargs):
         super().__init__(env,*args,**kwargs)
         self.zero_init_prob=1.  # Always approach from a collision-free start.

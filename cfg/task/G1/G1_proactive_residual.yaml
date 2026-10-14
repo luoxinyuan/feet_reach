@@ -82,10 +82,10 @@ command:
   contact_threshold_N: 1.0
   contact_target_margin_m: 0.005
   # Give the hand 160 ms to approach after the target moves behind the wall,
-  # then ramp missed-contact cost over another 160 ms to 0.5 reward units.
+  # then ramp missed-contact cost over another 160 ms to 1.5 reward units.
   contact_grace_steps: 8
   contact_miss_ramp_steps: 8
-  contact_late_penalty_max: 0.5
+  contact_late_penalty_max: 1.5
   unexpected_contact_score: 3.0
   student_train: false
   foot_force:

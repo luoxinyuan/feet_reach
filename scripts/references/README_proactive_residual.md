@@ -147,23 +147,33 @@ tracking warrant treating it as incidental contact in this run.
 
 Artifacts: [seed-42 video](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_0/evaluation.mp4), [seed-43 video](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_1/evaluation.mp4), [seed-44 video](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_2/evaluation.mp4), [seed-42 force/tracking curves](../../artifacts/proactive_ee_eval/lowlevel_only_wall/paired_curves.png), [all-trial summary](../../artifacts/proactive_ee_eval/lowlevel_only_wall/summary.json), [seed-42 samples](../../artifacts/proactive_ee_eval/lowlevel_only_wall/wall/repeat_0/samples.csv).
 
-## Delayed contact-miss cost
+## Delayed contact-miss cost and scale update
 
-The next reward version removes the persistent positive reward for required
+The delayed-reward version removes the persistent positive reward for required
 contact. Once the target is more than 5 mm behind the wall, the policy gets 8
 control steps (160 ms at 50 Hz) to approach. If contact is still absent, the
-miss cost ramps linearly over 8 more steps to a maximum of 0.5 weighted reward
-units per step. At the normal 20 ms reward timestep, that maximum contributes
-−0.01 per step. Contact turns this cost off; if contact is lost while contact is
-still required, the cost resumes at the level set by elapsed time. Unexpected
-contact retains a score of −3, and the existing loading-rate cost (soft threshold
-500 N/s, weight 0.1) is unchanged. There is no absolute-force penalty.
+miss cost ramps linearly over 8 more steps. In the first delayed-penalty run,
+the cap was 0.5 weighted reward units per step (−0.01 after the 20 ms timestep
+scale). Its final adapt logs showed a mean episode contact-miss contribution of
+−18.24 before timestep scaling (−0.36 after scaling), compared with −54.32 for
+the loading-rate term (−1.09 after scaling). Thus missed contact cost only
+reached about one third of the typical loading-rate cost.
+
+The updated cap is 1.5 weighted units per step (maximum −0.03 after timestep
+scaling), with the same grace, ramp duration, and 1 N contact threshold. At the
+old policy's miss/contact rates, this triples the cumulative miss cost to an
+estimated −1.09 per episode, matching the old loading-rate cost magnitude. This
+is a fixed-policy calibration estimate; the new policy may change its behavior
+and therefore the measured returns. Contact turns the miss cost off; if contact
+is lost while still required, the cost resumes at the level set by elapsed time.
+Unexpected contact retains a score of −3, and the existing loading-rate cost
+(soft threshold 500 N/s, weight 0.1) is unchanged. There is no absolute-force
+penalty.
 
 The 160 ms grace and 160 ms ramp are based on the stored target clips: the
 target first moves behind the wall around 0.74 s from clip start (10th–90th
 percentile 0.54–0.98 s), and required-contact intervals last a median 2.14 s.
-At full miss cost, a 0.6 s delay costs about as much as one peak-step loading
-rate penalty estimated from the prior v2 evaluation. This keeps a missed
-contact costly over time while allowing the arm to slow down for its first
-touch. New metrics report late misses and required-state age alongside hit/miss
-rates.
+With the old 0.5 cap, 0.6 s at full miss cost matched one peak-step loading-rate
+penalty estimated from the prior v2 evaluation. The new cap reaches that
+equivalent in about 0.2 s at the cap, after the grace and ramp. New metrics
+report late misses and required-state age alongside hit/miss rates.
