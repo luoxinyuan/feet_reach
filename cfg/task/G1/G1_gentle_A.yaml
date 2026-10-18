@@ -1,0 +1,23 @@
+# @package task
+defaults:
+  - /task/G1/G1_proactive_residual
+  - _self_
+name: G1GentleA
+command:
+  _target_: active_adaptation.envs.mdp.commands.gentle_residual.GentleResidualCommand
+  gentle:
+    curriculum_enabled: true
+    ramp_start: 0.05
+    ramp_end: 0.20
+    approach_distance: 0.10
+reward:
+  tracking:
+    left_ee_tracking: {enabled: false}
+    contact_impulse_cost: {enabled: false}
+    contact_requirement: {enabled: false}
+    gentle_tracking: {weight: 2.0}
+    gentle_requirement: {weight: 1.0}
+    gentle_approach: {weight: 1.0}
+    gentle_success: {weight: 1.0}
+    gentle_residual_smooth: {weight: 1.0}
+    gentle_impulse: {weight: 1.0}

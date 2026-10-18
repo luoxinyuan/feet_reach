@@ -78,7 +78,14 @@ command:
   wall_range:
   - 0.38
   - 0.44
-  force_rate_soft: 500.0
+  # One episode-level penalty after the first expected wall contact. Integrate
+  # wall-normal force for 100 ms at physics rate. Up to 2 N*s is free; 3.1 N*s
+  # gives raw cost 6 (-0.12 after 20 ms reward scaling), capped at raw cost 10.
+  contact_impulse_window_s: 0.1
+  contact_impulse_free_Ns: 2.0
+  contact_impulse_reference_Ns: 3.1
+  contact_impulse_penalty_at_reference: 6.0
+  contact_impulse_penalty_cap: 10.0
   contact_threshold_N: 1.0
   contact_target_margin_m: 0.005
   # Give the hand 160 ms to approach after the target moves behind the wall,
@@ -221,8 +228,8 @@ reward:
   tracking:
     left_ee_tracking:
       weight: 2.0
-    contact_jump_cost:
-      weight: 0.1
+    contact_impulse_cost:
+      weight: 1.0
     contact_requirement:
       weight: 1.0
   loco:

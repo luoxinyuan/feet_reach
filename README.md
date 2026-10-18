@@ -71,3 +71,5 @@ bash scripts/eval_wall_foot_reach.sh \
 旧版项目说明保留在 [README_legacy.md](README_legacy.md)，供历史配置和原框架使用方式参考。
 
 Frozen-CEER 两层 proactive EE residual：high-level 输出左手 xyz residual，接入 PointNet 点云，使用 proactive EE 轨迹；去掉全身 tracking reward，保留 EE、力增长率和 locomotion 奖励。运行 `bash scripts/train_proactive_residual_pipeline.sh`，仅 teacher → adapt 两阶段，默认八卡、每卡 4096 环境。详见 [配置与验证说明](scripts/references/README_proactive_residual.md)。
+
+Gentle-contact A/B 实验：A 使用接触前减速、接触任务奖励、冲量和平滑项；B 额外加入初始接触力增长率及峰值惩罚。分别运行 `GENTLE_VARIANT=A` / `B` 配合 `bash scripts/train_gentle_contact_pipeline.sh`，默认前四卡 / 后四卡。见 [实验配置与 reward 定义](scripts/references/README_gentle_contact.md)。

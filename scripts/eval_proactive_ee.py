@@ -51,6 +51,23 @@ def gradual_target(t, anchor_world, goal_world, wall_x):
     return start+(end-start)*blend
 
 
+def contact_impulse_summary(samples, window_s, threshold_n=1.):
+    """Integrate physics-rate filtered wall force after the first sampled contact."""
+    reach=[r for r in samples if r['time_s']>=0 and r['phase'] in ('reach','hold')]
+    if not reach:return dict(contact_impulse_Ns=None,first_contact_physics_time_s=None)
+    times=np.asarray([r['time_s'] for r in reach],dtype=float)
+    forces=np.asarray([r['normal_force_N'] for r in reach],dtype=float)
+    hits=np.flatnonzero(forces>threshold_n)
+    if not len(hits):return dict(contact_impulse_Ns=None,first_contact_physics_time_s=None)
+    start=float(times[hits[0]]);end=start+window_s
+    if times[-1]<end:return dict(contact_impulse_Ns=None,first_contact_physics_time_s=start)
+    inside=(times>start)&(times<end)
+    window_times=np.concatenate(([start],times[inside],[end]))
+    window_forces=np.interp(window_times,times,forces)
+    return dict(contact_impulse_Ns=float(np.trapz(window_forces,window_times)),
+                first_contact_physics_time_s=start)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--checkpoint',type=Path,required=True)
@@ -62,13 +79,15 @@ def main():
     p.add_argument('--paired-settle',type=float,default=0.,help='0 uses identical reference state/history at target onset; nonzero allows drift during settling')
     p.add_argument('--continue-on-instability',action='store_true',help='Diagnostic only: record threshold failures but continue until severe fall/nonfinite state')
     p.add_argument('--paired-trajectory',action='store_true',help='Matched world trajectory: 2s pre-wall approach, 6s insertion, 4s hold')
+    p.add_argument('--dataset-trajectory',action='store_true',help='Replay held-out validation EE trajectory up to its endpoint, then hold the endpoint')
     p.add_argument('--wall-only',action='store_true',help='Skip free-space and no-wall runs; record only the physical-wall trial')
     p.add_argument('--zero-residual',action='store_true',help='For a proactive-residual checkpoint, bypass the high-level actor and send zero residual while the low-level policy runs')
     p.add_argument('--video',action='store_true')
     p.add_argument('--video-fps',type=int,default=25,help='Recorded frame rate; lower values reduce headless rendering overhead')
+    p.add_argument('--contact-impulse-window-s',type=float,default=0.,help='Record physics-rate wall force and integrate this post-contact window (seconds)')
     p.add_argument('--masked-control',action='store_true',help='Additional wall-present/pointcloud-masked diagnostic (OOD, not a trained blind baseline)')
     args=p.parse_args()
-    if args.points<1 or args.repeats<1 or args.paired_settle<0 or not 1<=args.video_fps<=50: p.error('Counts must be positive and video-fps must be 1..50')
+    if args.points<1 or args.repeats<1 or args.paired_settle<0 or not 1<=args.video_fps<=50 or args.contact_impulse_window_s<0: p.error('Counts must be positive, video-fps must be 1..50, and impulse window nonnegative')
     args.output.mkdir(parents=True,exist_ok=False)
     import torch
     from omegaconf import OmegaConf
@@ -106,19 +125,47 @@ def main():
     if not len(behind):raise ValueError('No held-out endpoint behind wall')
     goal_world=behind[np.linalg.norm(behind-np.array(manifest['anchor_world']),axis=1).argmin()];goal=R.T@(goal_world-root)
     if args.paired_trajectory and args.paired_settle!=0:p.error('Trajectory protocol requires zero settling for matched reset state')
+    if args.paired_trajectory and args.dataset_trajectory:p.error('Choose either the generated paired trajectory or the held-out dataset trajectory')
+    dataset_trajectory=None;dataset_trajectory_path=None;dataset_trajectory_fps=None
+    if args.dataset_trajectory:
+        matching=[c for c in manifest['clips'] if c['split']=='val' and np.linalg.norm(np.asarray(c['target'])-goal_world)<1e-5]
+        if not matching:raise ValueError('No held-out validation clip matches the selected behind-wall endpoint')
+        matching.sort(key=lambda c:('_1.0.npz' not in c['path'],c['path']))
+        clip=matching[0];dataset_trajectory_path=clip['path']
+        with np.load(ROOT/'artifacts/ee_reach'/dataset_trajectory_path) as motion:
+            hand_idx=list(motion['body_names']).index('left_hand_mimic')
+            root_rot=Rotation.from_quat(motion['root_rot']).as_matrix()
+            hand_world=np.einsum('tij,tj->ti',root_rot,motion['local_body_pos'][:,hand_idx])+motion['root_pos']
+            endpoint_idx=int(np.linalg.norm(hand_world-goal_world,axis=1).argmin())
+            if np.linalg.norm(hand_world[endpoint_idx]-goal_world)>.005:raise ValueError('Held-out clip endpoint does not match the selected target')
+            dataset_trajectory=hand_world[:endpoint_idx+1].copy()
+            dataset_trajectory_fps=int(motion['fps'])
+        if dataset_trajectory_fps!=50:raise ValueError(f'Expected a 50 Hz dataset trajectory, got {dataset_trajectory_fps} Hz')
+        if np.linalg.norm(dataset_trajectory[0]-np.asarray(manifest['anchor_world']))>.02:
+            raise ValueError('Held-out trajectory start does not match the evaluation anchor')
     config=dict(checkpoint=str(args.checkpoint.resolve()),checkpoint_sha256=hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),phase=state['policy']['last_phase'],policy_type='proactive_residual' if is_residual else 'proactive_ee',seed=args.seed,
         accuracy_targets_root=ordered,anchor_root=anchor.tolist(),paired_target_root=goal.tolist(),paired_nominal_target_world=goal_world.tolist(),wall_x=args.wall_x,
         continue_on_instability=args.continue_on_instability,repeats=args.repeats,physics_dt=.005,control_dt=.02,accuracy='seeded random validation endpoints, ordered nearest-neighbor; continuous direct targets, 2s reach + 1s hold; 1s anchor settling',
         paired='nearest held-out target at least 1cm behind wall; wall fixed from reset; optional masked-geometry settling then direct target; 3s reach + 2s hold; default zero settling preserves identical reference-state/history at target onset',paired_settle_s=args.paired_settle,
         contact_threshold_N=1.,precontact_window_s=[-.2,-.02],force_source='left_hand_mimic filtered to reach_wall, sampled at 50 Hz control rate',force_sample_rate_hz=50.,
+        contact_impulse_window_s=args.contact_impulse_window_s or None,
+        contact_impulse_sample_rate_hz=200. if args.contact_impulse_window_s else None,
+        contact_impulse_method='Physics-rate trapezoidal integral after first force sample > 1 N; linearly interpolate the fixed-window endpoint.' if args.contact_impulse_window_s else None,
         geometry='synthetic noisy front-surface point cloud; not rendered depth',masked_control=args.masked_control,wall_only=args.wall_only,video_fps=args.video_fps if args.video else None,
         residual_mode='zero (high-level actor bypassed; low-level policy active)' if args.zero_residual else ('learned' if is_residual else 'not_applicable'),
+        target_trajectory_source=dataset_trajectory_path if args.dataset_trajectory else ('generated quintic' if args.paired_trajectory else 'fixed endpoint'),
+        target_trajectory_fps=dataset_trajectory_fps if args.dataset_trajectory else (50 if args.paired_trajectory else None),
         note='Wall/free-space contrast alone is not proof of compliance. Precontact differences support anticipation; post-contact slowdown can be passive. Masked control is OOD, not a trained blind policy.')
     if args.paired_trajectory:
         config.update(paired='Fixed world quintic waypoints: anchor at 0s, goal yz and wall_x-0.06 at 2s, held-out goal inside wall at 8s, hold until 12s. Converted to live-root xyz at 50Hz.',paired_reach_s=8.,paired_hold_s=4.,wall_thickness_m=.05)
         if not args.wall_x<goal_world[0]<args.wall_x+.05:raise ValueError('Goal must be inside the wall slab')
         trajectory=np.array([[t,*gradual_target(t,manifest['anchor_world'],goal_world,args.wall_x)] for t in np.arange(0,12.0001,.02)])
         np.savetxt(args.output/'planned_trajectory.csv',trajectory,delimiter=',',header='time_s,x_world,y_world,z_world',comments='')
+    if args.dataset_trajectory:
+        trajectory_duration=(len(dataset_trajectory)-1)/dataset_trajectory_fps
+        trajectory=np.column_stack((np.arange(len(dataset_trajectory))/dataset_trajectory_fps,dataset_trajectory))
+        np.savetxt(args.output/'planned_trajectory.csv',trajectory,delimiter=',',header='time_s,x_world,y_world,z_world',comments='')
+        config.update(paired=f'Held-out validation clip {dataset_trajectory_path}; replay EE target at {dataset_trajectory_fps} Hz from anchor to endpoint over {trajectory_duration:.3f}s, then hold endpoint for 2s.',paired_reach_s=trajectory_duration,paired_hold_s=2.,wall_thickness_m=.05)
     (args.output/'config.json').write_text(json.dumps(config,indent=2));del state
     app=AppLauncher(headless=True,enable_cameras=args.video,device='cuda:0').app
     writer=None
@@ -150,20 +197,24 @@ def main():
             def project(xyz):
                 d=xyz-eye;z=float(d@forward)
                 return (320+427*(d@right)/z,240-427*(d@up)/z) if z>0 else None
-        rows=[];reference={};clock_t=0.;previous_p=None;previous_f=0.;phase='';point=-1;wall_x=args.wall_x;mask=False;fresh=True;present_wall=False
+        rows=[];physics_force_rows=[];reference={};clock_t=0.;previous_p=None;previous_f=0.;phase='';point=-1;wall_x=args.wall_x;mask=False;fresh=True;present_wall=False
         sample_stride=max(1,round(base.step_dt/base.physics_dt));sample_counter=0
         def physics_sample(substep):
             nonlocal clock_t,previous_p,previous_f,sample_counter
             clock_t+=base.physics_dt
             sample_counter+=1
-            if sample_counter%sample_stride:return
             data=cmd.asset.data;p=data.body_pos_w[0,cmd.hand_asset].detach().cpu().numpy().copy()
             matrix=sensor.data.force_matrix_w
             if matrix is None:raise RuntimeError('Filtered hand-wall force missing')
             force=matrix[0].reshape(-1,3).sum(0).detach().cpu().numpy()
             if not np.isfinite(force).all():raise RuntimeError('Nonfinite contact sensor')
+            fn=max(0.,-float(force[0]))
+            if args.contact_impulse_window_s and clock_t>=0.:
+                physics_force_rows.append(dict(time_s=round(clock_t,6),phase=phase,normal_force_N=fn,
+                    force_x_N=float(force[0]),force_y_N=float(force[1]),force_z_N=float(force[2])))
+            if sample_counter%sample_stride:return
             sample_dt=sample_stride*base.physics_dt
-            fn=max(0.,-float(force[0]));vx=0. if previous_p is None else (p[0]-previous_p[0])/sample_dt
+            vx=0. if previous_p is None else (p[0]-previous_p[0])/sample_dt
             actual=quat_apply_inverse(data.root_quat_w,data.body_pos_w[:,cmd.hand_asset]-data.root_pos_w)[0].cpu().numpy()
             target=cmd.target_ee_pos_b()[0].cpu().numpy()
             drift=float((data.root_pos_w-reference['root']).norm());feet=float((data.body_pos_w[:,[cmd.left_foot_asset,cmd.right_foot_asset]]-reference['feet']).norm(dim=-1).max())
@@ -182,7 +233,7 @@ def main():
             previous_p=p;previous_f=fn
         base._post_step_callbacks.append(physics_sample)
         def reset(present,seed,settle=1.):
-            nonlocal rows,reference,clock_t,previous_p,previous_f,fresh,present_wall,sample_counter
+            nonlocal rows,physics_force_rows,reference,clock_t,previous_p,previous_f,fresh,present_wall,sample_counter
             present_wall=present
             fresh=True;env.set_seed(seed);cmd.cloud_counter=0;cmd.no_wall_prob=0. if present else 1.;cmd.wall_range=(wall_x,wall_x)
             cmd.set_target_ee_pos_b(None);env.reset();base.episode_length_buf.zero_();cmd.set_target_ee_pos_b(anchor)
@@ -192,7 +243,7 @@ def main():
             reference=dict(root=cmd.asset.data.root_pos_w.clone(),feet=cmd.asset.data.body_pos_w[:,[cmd.left_foot_asset,cmd.right_foot_asset]].clone())
             if args.video:
                 for _ in range(2):base.sim.render()
-            rows=[];clock_t=-settle;sample_counter=0;previous_p=cmd.asset.data.body_pos_w[0,cmd.hand_asset].cpu().numpy().copy();previous_f=0.
+            rows=[];physics_force_rows=[];clock_t=-settle;sample_counter=0;previous_p=cmd.asset.data.body_pos_w[0,cmd.hand_asset].cpu().numpy().copy();previous_f=0.
         def render(label):
             if writer is None:return
             target=cmd.target_ee_world()[0].cpu().numpy().astype(float);actual=cmd.asset.data.body_pos_w[0,cmd.hand_asset].cpu().numpy().astype(float)
@@ -244,6 +295,11 @@ def main():
         def save_rows(path):
             with path.open('w',newline='') as f:
                 w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+        def save_physics_force_rows(path):
+            if not args.contact_impulse_window_s:return
+            fields=('time_s','phase','normal_force_N','force_x_N','force_y_N','force_z_N')
+            with path.open('w',newline='') as f:
+                w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(physics_force_rows)
         trials=[]
         with torch.inference_mode(),set_exploration_type(ExplorationType.DETERMINISTIC):
             accuracy=[]
@@ -279,14 +335,24 @@ def main():
                     (d/'start_state.json').write_text(json.dumps(start_state,indent=2))
                     mask=requested_mask
                     phase='reach'
-                    reaching=8. if args.paired_trajectory else 3.
-                    target_schedule=(lambda t:gradual_target(t,manifest['anchor_world'],goal_world,wall_x)) if args.paired_trajectory else goal
+                    reaching=(len(dataset_trajectory)-1)/dataset_trajectory_fps if args.dataset_trajectory else (8. if args.paired_trajectory else 3.)
+                    if args.dataset_trajectory:
+                        def target_schedule(t):
+                            frame=np.clip(t*dataset_trajectory_fps,0,len(dataset_trajectory)-1)
+                            i=int(frame);j=min(i+1,len(dataset_trajectory)-1);u=frame-i
+                            return (1.-u)*dataset_trajectory[i]+u*dataset_trajectory[j]
+                    else:
+                        target_schedule=(lambda t:gradual_target(t,manifest['anchor_world'],goal_world,wall_x)) if args.paired_trajectory else goal
                     if not failure:failure=run_segment(target_schedule,reaching,name+' | slow approach/insertion' if args.paired_trajectory else name+' | reaching')
                     phase='hold'
                     if not failure:failure=run_segment(target_schedule,4. if args.paired_trajectory else 2.,name+' | hold')
                     observed_failure=next((r['failure'] for r in rows if r['failure']),failure)
-                    result=dict(condition=name,repeat=repeat,seed=args.seed+repeat,trajectory_finished=not failure,first_stability_failure_s=next((r['time_s'] for r in rows if r['failure']),None),**summarize(rows,not observed_failure,observed_failure,reaching));trials.append(result)
-                    save_rows(d/'samples.csv');(d/'summary.json').write_text(json.dumps(result,indent=2))
+                    result=dict(condition=name,repeat=repeat,seed=args.seed+repeat,trajectory_finished=not failure,first_stability_failure_s=next((r['time_s'] for r in rows if r['failure']),None),**summarize(rows,not observed_failure,observed_failure,reaching))
+                    if args.contact_impulse_window_s:
+                        result.update(contact_impulse_summary(physics_force_rows,args.contact_impulse_window_s))
+                        result['contact_impulse_sample_rate_hz']=round(1./base.physics_dt,6)
+                    trials.append(result)
+                    save_rows(d/'samples.csv');save_physics_force_rows(d/'physics_force.csv');(d/'summary.json').write_text(json.dumps(result,indent=2))
                     if writer:writer.close();writer=None
                     print('TRIAL',json.dumps(result),flush=True)
         # Paired pre-contact comparison: both windows strictly precede wall contact.
@@ -325,6 +391,21 @@ def plot_results(output,result):
     for ax,label in zip(axes,['Hand marker gap to wall plane (m)','Hand approach velocity (m/s)','Filtered wall normal force (N)']):
         ax.set_ylabel(label);ax.grid(alpha=.3);ax.axvline(0,color='k',ls=':',lw=1);ax.legend()
     axes[-1].set_xlabel('Time after target command (s)');fig.tight_layout();fig.savefig(output/'paired_curves.png',dpi=150);plt.close(fig)
+    physics_path=output/'wall/repeat_0/physics_force.csv'
+    wall_trial=next((trial for trial in result['trials'] if trial['condition']=='wall' and trial['repeat']==0),None)
+    if physics_path.exists() and wall_trial and wall_trial.get('first_contact_physics_time_s') is not None:
+        with physics_path.open() as f:physics_rows=list(csv.DictReader(f))
+        if physics_rows:
+            times=np.array([float(r['time_s']) for r in physics_rows]);forces=np.array([float(r['normal_force_N']) for r in physics_rows])
+            contact_t=wall_trial['first_contact_physics_time_s'];window=result['config'].get('contact_impulse_window_s')
+            fig,ax=plt.subplots(figsize=(10,4.5));ax.plot(times,forces,lw=1.2,label='Filtered wall normal force (200 Hz)')
+            ax.axvline(contact_t,color='#d7301f',ls='--',label=f'First contact: {contact_t:.3f} s')
+            if window:
+                impulse=wall_trial.get('contact_impulse_Ns')
+                ax.axvspan(contact_t,contact_t+window,color='#fdae61',alpha=.3,
+                    label=f'{window*1000:.0f} ms window: {impulse:.2f} N·s' if impulse is not None else f'{window*1000:.0f} ms window')
+            ax.set(xlabel='Time after target command (s)',ylabel='Force (N)',title='Contact force at physics rate')
+            ax.grid(alpha=.25);ax.legend();fig.tight_layout();fig.savefig(output/'contact_force_200hz.png',dpi=160);plt.close(fig)
     accuracy_samples=output/'accuracy/samples.csv'
     if accuracy_samples.exists():
         with accuracy_samples.open() as f:rows=list(csv.DictReader(f))

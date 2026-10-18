@@ -29,16 +29,16 @@ and trains the privileged-state estimator, following the existing high-level
 algorithm. There is no finetune stage. The whole-body joint estimator remains
 inside the frozen CEER low-level, rather than being trained by the high-level.
 
-Reward: proactive left-hand EE tracking weight 2.0, contact force growth penalty
-weight 0.1, and unchanged proactive locomotion terms. Root/joint/full-body reference
-tracking rewards are removed. Contact penalty before the environment's dt scaling:
-`-0.1 * max((peak_positive_loading_rate - 500) / 500, 0)^2`.
-The rate is sampled every 5 ms; each 20 ms control step uses its maximum. There is
-no absolute hand-force penalty or new residual-action regularizer. The original
-foot impact/slip/air-time, joint-limit/velocity, action-rate and survival terms
-remain. Cumulative full-body tracking-error termination is replaced by root-height
-and fall-over checks. CEER's force-limit command is held at 30 N; this is a low-level
-input, not an added high-level force penalty.
+The first reward version used proactive left-hand EE tracking weight 2.0,
+contact force growth penalty weight 0.1, and unchanged proactive locomotion terms.
+Root/joint/full-body reference tracking rewards were removed. That historical
+penalty was `-0.1 * max((peak_positive_loading_rate - 500) / 500, 0)^2`; the current
+wall-specific capped version is described below. There is no absolute hand-force
+penalty or new residual-action regularizer. The original foot impact/slip/air-time,
+joint-limit/velocity, action-rate and survival terms remain. Cumulative full-body
+tracking-error termination is replaced by root-height and fall-over checks. CEER's
+force-limit command is held at 30 N; this is a low-level input, not an added
+high-level force penalty.
 
 Run from the project root (CEER checkpoint downloaded to `.cache/ceer/checkpoint_final.pt`):
 
@@ -166,9 +166,9 @@ estimated −1.09 per episode, matching the old loading-rate cost magnitude. Thi
 is a fixed-policy calibration estimate; the new policy may change its behavior
 and therefore the measured returns. Contact turns the miss cost off; if contact
 is lost while still required, the cost resumes at the level set by elapsed time.
-Unexpected contact retains a score of −3, and the existing loading-rate cost
-(soft threshold 500 N/s, weight 0.1) is unchanged. There is no absolute-force
-penalty.
+Unexpected contact retains a score of −3. In that historical run, the loading-
+rate cost still used the old soft threshold 500 N/s and weight 0.1. There was no
+absolute-force penalty.
 
 The 160 ms grace and 160 ms ramp are based on the stored target clips: the
 target first moves behind the wall around 0.74 s from clip start (10th–90th
@@ -177,3 +177,37 @@ With the old 0.5 cap, 0.6 s at full miss cost matched one peak-step loading-rate
 penalty estimated from the prior v2 evaluation. The new cap reaches that
 equivalent in about 0.2 s at the cap, after the grace and ramp. New metrics
 report late misses and required-state age alongside hit/miss rates.
+
+## Contact impulse penalty (current configuration)
+
+At the first expected wall contact (>1 N, with the target behind the wall),
+integrate the filtered wall-normal force at physics rate for 100 ms. Apply one
+episode-level cost after the window completes:
+`-min(6 * (max(J_100ms - 2.0, 0) / 1.1)^2, 10)`, where `J_100ms` is in N·s.
+The first 2.0 N·s are free (about 20 N sustained for 100 ms); 3.1 N·s gives a
+raw score of −6, or −0.12 after the 20 ms control-step scaling. The cost caps at
+−10 raw (−0.20 scaled). The delayed missing-contact penalty is unchanged, so
+avoiding contact still incurs its existing cost. The pre-contact speed reward
+term is no longer enabled in the current task config. Historical speed-reward
+parameters and method remain available for old checkpoint compatibility.
+
+The metric uses physics-rate samples (200 Hz in training), not the 20/50 Hz
+downsampled diagnostic curves. The 100 ms duration smooths single-step force
+spikes while retaining an episode-level contact-load signal. Training logs now
+include mean completed impulse and mean raw impulse penalty.
+
+Run `20261016_142525` started in tmux session `proactive-impulse` on GPUs 4–7
+with four workers, 4B teacher frames and 1B adaptation frames. The active stage,
+resolved config, logs and checkpoints are under
+[`outputs/proactive-residual/20261016_142525`](../../outputs/proactive-residual/20261016_142525).
+
+## Zero-residual contact approach speed
+
+The existing three-trial low-level-only wall evaluation (seeds 42–44) logs hand
+position and filtered wall force at 50 Hz. At the first sample above 1 N, the
+measured x velocity was −0.017, −0.029, and −0.043 m/s respectively, so the hand
+was nearly stationary or moving slightly away at the sampled instant. The samples
+40–80 ms earlier show approach velocities around +0.67 to +0.76 m/s. Since the
+position-derived velocity and force are sampled every 20 ms, these numbers do not
+resolve the instantaneous velocity at the exact collision onset; the robot was
+already braking sharply by the first detected-contact sample.

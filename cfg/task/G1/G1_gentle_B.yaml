@@ -1,0 +1,9 @@
+# @package task
+defaults:
+  - /task/G1/G1_gentle_A
+  - _self_
+name: G1GentleB
+reward:
+  tracking:
+    gentle_growth: {weight: 1.0}
+    gentle_peak: {weight: 1.0}

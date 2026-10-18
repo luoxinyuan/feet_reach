@@ -15,7 +15,20 @@ class ProactiveEECommand(WallFootReachCommand):
                  contact_threshold_N=1., contact_target_margin_m=.005,
                  contact_grace_steps=8, contact_miss_ramp_steps=8,
                  contact_late_penalty_max=1.5,
-                 unexpected_contact_score=3.0, **kwargs):
+                 unexpected_contact_score=3.0,
+                 force_rate_penalty_scale=.3, force_rate_penalty_cap=1.5,
+                 contact_speed_threshold_m_s=.1,
+                 contact_speed_reference_m_s=.5,
+                 contact_speed_penalty_at_reference=6.,
+                 contact_speed_penalty_cap=10.,
+                 contact_speed_window_s=.1,
+                 contact_speed_exclusion_s=.02,
+                 contact_impulse_window_s=.1,
+                 contact_impulse_free_Ns=2.0,
+                 contact_impulse_reference_Ns=3.1,
+                 contact_impulse_penalty_at_reference=6.0,
+                 contact_impulse_penalty_cap=10.0,
+                 **kwargs):
         super().__init__(env,*args,**kwargs)
         self.zero_init_prob=1.  # Always approach from a collision-free start.
         self.npoints=geometry_points
@@ -28,13 +41,70 @@ class ProactiveEECommand(WallFootReachCommand):
         self.contact_miss_ramp_steps=int(contact_miss_ramp_steps)
         self.contact_late_penalty_max=float(contact_late_penalty_max)
         self.unexpected_contact_score=float(unexpected_contact_score)
+        self.force_rate_penalty_scale=float(force_rate_penalty_scale)
+        self.force_rate_penalty_cap=float(force_rate_penalty_cap)
+        self.contact_speed_threshold_m_s=float(contact_speed_threshold_m_s)
+        self.contact_speed_reference_m_s=float(contact_speed_reference_m_s)
+        self.contact_speed_penalty_at_reference=float(contact_speed_penalty_at_reference)
+        self.contact_speed_penalty_cap=float(contact_speed_penalty_cap)
+        self.contact_speed_window_s=float(contact_speed_window_s)
+        self.contact_speed_exclusion_s=float(contact_speed_exclusion_s)
+        self.contact_impulse_window_s=float(contact_impulse_window_s)
+        self.contact_impulse_free_Ns=float(contact_impulse_free_Ns)
+        self.contact_impulse_reference_Ns=float(contact_impulse_reference_Ns)
+        self.contact_impulse_penalty_at_reference=float(contact_impulse_penalty_at_reference)
+        self.contact_impulse_penalty_cap=float(contact_impulse_penalty_cap)
         if self.contact_grace_steps < 0 or self.contact_miss_ramp_steps < 1:
             raise ValueError('contact_grace_steps must be nonnegative and contact_miss_ramp_steps positive')
         if self.contact_late_penalty_max < 0.:
             raise ValueError('contact_late_penalty_max must be nonnegative')
+        if self.force_rate_soft <= 0. or self.force_rate_penalty_scale < 0. or self.force_rate_penalty_cap < 0.:
+            raise ValueError('force_rate_soft must be positive and force-rate penalty parameters nonnegative')
+        if (self.contact_speed_threshold_m_s < 0.
+                or self.contact_speed_reference_m_s <= self.contact_speed_threshold_m_s
+                or self.contact_speed_penalty_at_reference < 0.
+                or self.contact_speed_penalty_cap < 0.
+                or self.contact_speed_window_s <= 0.
+                or self.contact_speed_exclusion_s < 0.):
+            raise ValueError('Invalid pre-contact speed penalty parameters')
+        if (self.contact_impulse_window_s <= 0.
+                or self.contact_impulse_free_Ns < 0.
+                or self.contact_impulse_reference_Ns <= self.contact_impulse_free_Ns
+                or self.contact_impulse_penalty_at_reference < 0.
+                or self.contact_impulse_penalty_cap < self.contact_impulse_penalty_at_reference):
+            raise ValueError('Invalid contact impulse penalty parameters')
+        physics_dt=float(self.env.physics_dt)
+        self.contact_speed_window_steps=round(self.contact_speed_window_s/physics_dt)
+        self.contact_speed_exclusion_steps=round(self.contact_speed_exclusion_s/physics_dt)
+        if (abs(self.contact_speed_window_steps*physics_dt-self.contact_speed_window_s)>1e-6
+                or abs(self.contact_speed_exclusion_steps*physics_dt-self.contact_speed_exclusion_s)>1e-6):
+            raise ValueError('Pre-contact speed windows must align exactly with physics_dt')
+        self.contact_impulse_window_steps=round(self.contact_impulse_window_s/physics_dt)
+        if abs(self.contact_impulse_window_steps*physics_dt-self.contact_impulse_window_s)>1e-6:
+            raise ValueError('Contact impulse window must align exactly with physics_dt')
+        self.contact_speed_history_steps=(self.contact_speed_window_steps
+                                          +self.contact_speed_exclusion_steps+1)
+        self.hand_x_history=torch.zeros(
+            self.num_envs,self.contact_speed_history_steps,device=self.device)
+        self.contact_speed_history_count=torch.zeros(
+            self.num_envs,dtype=torch.long,device=self.device)
+        self.contact_speed_history_index=0
+        self.contact_speed_penalty_paid=torch.zeros(
+            self.num_envs,dtype=torch.bool,device=self.device)
+        self.contact_speed_penalty_pending=torch.zeros_like(self.contact_speed_penalty_paid)
+        self.first_contact_speed_m_s=torch.zeros(self.num_envs,device=self.device)
+        self.first_contact_speed_penalty=torch.zeros_like(self.first_contact_speed_m_s)
+        # The expected-contact impulse is integrated at physics rate, then
+        # charged once after the complete post-contact window is observed.
+        self.contact_impulse_active=torch.zeros(self.num_envs,dtype=torch.bool,device=self.device)
+        self.contact_impulse_paid=torch.zeros_like(self.contact_impulse_active)
+        self.contact_impulse_pending=torch.zeros_like(self.contact_impulse_active)
+        self.contact_impulse_elapsed=torch.zeros(self.num_envs,device=self.device)
+        self.contact_impulse_integral=torch.zeros_like(self.contact_impulse_elapsed)
+        self.contact_impulse_previous_force=torch.zeros_like(self.contact_impulse_elapsed)
+        self.first_contact_impulse_Ns=torch.zeros_like(self.contact_impulse_elapsed)
+        self.first_contact_impulse_penalty=torch.zeros_like(self.contact_impulse_elapsed)
         self.wall=env.scene['reach_wall']
-        self.sensor=env.scene['ee_contact_forces']
-        self.hand_sensor=self.sensor.body_names.index('left_hand_mimic')
         self.wall_sensor=env.scene['ee_wall_contact_forces']
         self.wall_contact_this_step=torch.zeros(self.num_envs,dtype=torch.bool,device=self.device)
         self.contact_required_age=torch.zeros(self.num_envs,dtype=torch.long,device=self.device)
@@ -67,6 +137,20 @@ class ProactiveEECommand(WallFootReachCommand):
         self.previous_force[env_ids]=0;self.peak_force[env_ids]=0;self.peak_rate[env_ids]=0
         self.wall_contact_this_step[env_ids]=False
         self.contact_required_age[env_ids]=0
+        self.hand_x_history[env_ids]=0.
+        self.contact_speed_history_count[env_ids]=0
+        self.contact_speed_penalty_paid[env_ids]=False
+        self.contact_speed_penalty_pending[env_ids]=False
+        self.first_contact_speed_m_s[env_ids]=0.
+        self.first_contact_speed_penalty[env_ids]=0.
+        self.contact_impulse_active[env_ids]=False
+        self.contact_impulse_paid[env_ids]=False
+        self.contact_impulse_pending[env_ids]=False
+        self.contact_impulse_elapsed[env_ids]=0.
+        self.contact_impulse_integral[env_ids]=0.
+        self.contact_impulse_previous_force[env_ids]=0.
+        self.first_contact_impulse_Ns[env_ids]=0.
+        self.first_contact_impulse_penalty[env_ids]=0.
         self.refresh_cloud(env_ids)
 
     def step(self,substep):
@@ -75,20 +159,75 @@ class ProactiveEECommand(WallFootReachCommand):
             self.wall_contact_this_step.zero_()
 
     def post_step(self,substep):
-        # Read each physics substep, not only the 50 Hz control boundary.
-        force=(-self.sensor.data.net_forces_w[:,self.hand_sensor,0]).clamp_min(0)
-        rate=((force-self.previous_force)/self.env.physics_dt).clamp_min(0)
-        self.peak_force.copy_(torch.maximum(self.peak_force,force))
-        self.peak_rate.copy_(torch.maximum(self.peak_rate,rate))
-        self.previous_force.copy_(force)
-        # Latch wall contact across physics substeps so even a brief contact
-        # counts in the control-step reward. The dedicated sensor is filtered
-        # to the wall, so unrelated hand contacts cannot satisfy this term.
+        # Sample the wall-filtered normal load at each 200 Hz physics step.
+        # This keeps the penalized signal aligned with the wall contact being
+        # rewarded and avoids charging unrelated hand contacts.
         matrix=self.wall_sensor.data.force_matrix_w
         if matrix is not None:
+            hand_x=self.asset.data.body_pos_w[:,self.hand_asset,0]
+            history_index=self.contact_speed_history_index
+            self.hand_x_history[:,history_index]=hand_x
+            self.contact_speed_history_index=(history_index+1)%self.contact_speed_history_steps
+            self.contact_speed_history_count=(self.contact_speed_history_count+1).clamp(
+                max=self.contact_speed_history_steps)
             wall_force=matrix.reshape(self.num_envs,-1,3).sum(dim=1)
             wall_normal_force=(-wall_force[:,0]).clamp_min(0.)
+            rate=((wall_normal_force-self.previous_force)/self.env.physics_dt).clamp_min(0.)
+            self.peak_force.copy_(torch.maximum(self.peak_force,wall_normal_force))
+            self.peak_rate.copy_(torch.maximum(self.peak_rate,rate))
+            self.previous_force.copy_(wall_normal_force)
+            # Latch even brief contact across substeps for the control-step reward.
             self.wall_contact_this_step |= wall_normal_force>self.contact_threshold_N
+            # Charge one episode-level speed cost at the first wall contact.
+            # Use net wall-normal motion over [t_c-120 ms, t_c-20 ms].
+            new_wall_contact=(wall_normal_force>self.contact_threshold_N)&self.wall_present&~self.contact_speed_penalty_paid
+            enough_history=self.contact_speed_history_count>=self.contact_speed_history_steps
+            new_wall_contact &= enough_history
+            if new_wall_contact.any():
+                late_index=(history_index-self.contact_speed_exclusion_steps)%self.contact_speed_history_steps
+                early_index=(history_index-self.contact_speed_exclusion_steps-self.contact_speed_window_steps)%self.contact_speed_history_steps
+                approach_speed=((self.hand_x_history[:,late_index]-self.hand_x_history[:,early_index])
+                                /self.contact_speed_window_s).clamp_min(0.)
+                normalized=((approach_speed-self.contact_speed_threshold_m_s).clamp_min(0.)
+                            /(self.contact_speed_reference_m_s-self.contact_speed_threshold_m_s))
+                penalty=(self.contact_speed_penalty_at_reference*normalized.square()).clamp(
+                    max=self.contact_speed_penalty_cap)
+                self.first_contact_speed_m_s[new_wall_contact]=approach_speed[new_wall_contact]
+                self.first_contact_speed_penalty[new_wall_contact]=penalty[new_wall_contact]
+                self.contact_speed_penalty_paid[new_wall_contact]=True
+                self.contact_speed_penalty_pending[new_wall_contact]=True
+
+            # Begin only when wall contact is expected. Integrate the measured
+            # normal load over a fixed 100 ms window so the penalty is not tied
+            # to a single noisy force derivative. Finish at physics rate and
+            # charge once from the control-rate reward below.
+            required,_=self.contact_requirement_state()
+            was_active=self.contact_impulse_active.clone()
+            if was_active.any():
+                self.contact_impulse_integral[was_active] += (
+                    .5*(self.contact_impulse_previous_force[was_active]+wall_normal_force[was_active])
+                    *self.env.physics_dt)
+                self.contact_impulse_elapsed[was_active] += self.env.physics_dt
+                self.contact_impulse_previous_force[was_active]=wall_normal_force[was_active]
+                completed=(was_active & (self.contact_impulse_elapsed>=self.contact_impulse_window_s-1e-7))
+                if completed.any():
+                    impulse=self.contact_impulse_integral[completed]
+                    excess=((impulse-self.contact_impulse_free_Ns).clamp_min(0.)
+                            /(self.contact_impulse_reference_Ns-self.contact_impulse_free_Ns))
+                    penalty=(self.contact_impulse_penalty_at_reference*excess.square()).clamp(
+                        max=self.contact_impulse_penalty_cap)
+                    self.first_contact_impulse_Ns[completed]=impulse
+                    self.first_contact_impulse_penalty[completed]=penalty
+                    self.contact_impulse_pending[completed]=True
+                    self.contact_impulse_paid[completed]=True
+                    self.contact_impulse_active[completed]=False
+            new_expected_contact=((wall_normal_force>self.contact_threshold_N)&required&self.wall_present
+                                  &~self.contact_impulse_paid&~self.contact_impulse_active)
+            if new_expected_contact.any():
+                self.contact_impulse_active[new_expected_contact]=True
+                self.contact_impulse_elapsed[new_expected_contact]=0.
+                self.contact_impulse_integral[new_expected_contact]=0.
+                self.contact_impulse_previous_force[new_expected_contact]=wall_normal_force[new_expected_contact]
 
     def contact_requirement_state(self):
         target=self.target_ee_world()
@@ -126,6 +265,18 @@ class ProactiveEECommand(WallFootReachCommand):
                     'contact/mean_peak_N': self.peak_force.mean().item(),
                     'contact/max_peak_N': self.peak_force.max().item(),
                     'contact/max_loading_rate_N_s': self.peak_rate.max().item(),
+                    'contact/mean_first_approach_speed_m_s': (
+                        self.first_contact_speed_m_s[self.contact_speed_penalty_paid].mean().item()
+                        if self.contact_speed_penalty_paid.any() else 0.),
+                    'contact/mean_speed_penalty_raw': (
+                        self.first_contact_speed_penalty[self.contact_speed_penalty_paid].mean().item()
+                        if self.contact_speed_penalty_paid.any() else 0.),
+                    'contact/mean_first_impulse_100ms_Ns': (
+                        self.first_contact_impulse_Ns[self.contact_impulse_paid].mean().item()
+                        if self.contact_impulse_paid.any() else 0.),
+                    'contact/mean_impulse_penalty_raw': (
+                        self.first_contact_impulse_penalty[self.contact_impulse_paid].mean().item()
+                        if self.contact_impulse_paid.any() else 0.),
                     'contact/fraction': (self.peak_force>1.).float().mean().item(),
                     'contact/required_fraction': required.float().mean().item(),
                     'contact/requirement_match_fraction': (required==contact).float().mean().item(),
@@ -220,7 +371,30 @@ class ProactiveEECommand(WallFootReachCommand):
 
     @reward
     def contact_jump_cost(self):
-        return -((self.peak_rate-self.force_rate_soft).clamp_min(0)/self.force_rate_soft).square().unsqueeze(-1)
+        """Penalize required wall-contact loading rates over the soft threshold.
+
+        Coefficient/cap are in pre-dt reward units. With configured weight 1 and
+        step_dt=.02, the per-control-step penalty is capped at -0.03.
+        """
+        required,contact=self.contact_requirement_state()
+        excess=((self.peak_rate-self.force_rate_soft).clamp_min(0.)/self.force_rate_soft)
+        penalty=(self.force_rate_penalty_scale*excess.square()).clamp(max=self.force_rate_penalty_cap)
+        active=required & contact
+        return (-penalty*active.float()).unsqueeze(-1)
+
+    @reward
+    def contact_speed_cost(self):
+        """Apply one pre-contact speed penalty at the first required wall contact."""
+        score=-self.first_contact_speed_penalty*self.contact_speed_penalty_pending.float()
+        self.contact_speed_penalty_pending.zero_()
+        return score.unsqueeze(-1)
+
+    @reward
+    def contact_impulse_cost(self):
+        """Charge once for excess 100 ms normal-force impulse after expected contact."""
+        score=-self.first_contact_impulse_penalty*self.contact_impulse_pending.float()
+        self.contact_impulse_pending.zero_()
+        return score.unsqueeze(-1)
 
     def debug_draw(self):
         if hasattr(self.env,'debug_draw'):
