@@ -2,6 +2,23 @@
 
 G1 扶墙脚部 reaching：左手扶墙、右脚支撑、左脚跟踪实时 root 坐标系下的笛卡尔目标。包含参考轨迹生成、teacher / adapt / finetune 训练、固定目标精度评估和网页遥操作。
 
+## Whole-body compliance：本地 MuJoCo demo
+
+仓库已包含训练好的 **纯 student policy**、归一化参数、G1 模型和 mesh。
+可在个人电脑用鼠标拖拽上半身施力（上限 30 N），通过浏览器观察实际外力箭头。
+运行 demo 不需要 Isaac Lab、AMASS 或训练环境。
+
+在 Python 3.10/3.11 的独立虚拟环境中：
+
+```bash
+python -m pip install -r deploy/mujoco_whole_body/requirements.txt
+python scripts/mujoco_whole_body_web.py --port 8765
+```
+
+打开 http://localhost:8765，点击“开始 / 继续”。从站姿启动，R 复位，空格暂停。
+当前 student 无外力时仍可能漂移，松手不保证停止。
+安装、Windows/macOS/Linux 使用方式及验证范围见 [完整说明](scripts/references/README_mujoco_whole_body_student.md)。
+
 ## Proactive EE tracking（PointNet）
 
 新增双脚支撑、左手 EE tracking 实验：student 输入实时 root 坐标系下的 EE target xyz、本体历史和 PointNet 编码的局部点云，保留 target joint estimator。墙位置独立随机采样，25% 场景无墙；通过 tracking、超过 500 N/s 的接触力正向上升率惩罚（不惩罚接触力绝对值）学习接近行为，不使用距离触发的减速规则。

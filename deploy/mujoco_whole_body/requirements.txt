@@ -1,0 +1,7 @@
+# Standalone demo only; no Isaac Lab, CUDA toolkit or AMASS is required.
+# Python 3.10 or 3.11. Linux validation used Torch 2.7.0 and MuJoCo 3.9.0.
+numpy>=1.26,<3
+torch>=2.7,<3
+mujoco==3.9.0
+glfw>=2.8,<3
+Pillow>=10,<13

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whole-body student · MuJoCo</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#10151c;color:#e7edf5}body{margin:0;padding:20px;max-width:1280px;margin-inline:auto}header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{font-size:22px;margin:0}p{color:#adbbcc;font-size:14px;line-height:1.6}button{background:#243243;color:inherit;border:1px solid #41536a;border-radius:7px;padding:9px 15px;cursor:pointer;font-size:14px}button:hover{background:#344a62}button:disabled{opacity:.5;cursor:default}#toggle{background:#11665d}#connection{color:#f3bd62}#viewport{position:relative;line-height:0;margin:16px 0;background:#070b10;border:1px solid #324252;border-radius:10px;overflow:hidden}canvas{display:block;width:100%;aspect-ratio:8/5;touch-action:none;cursor:grab;outline:none}canvas:active{cursor:grabbing}#hud{position:absolute;left:12px;top:12px;background:#10151cdc;padding:10px 14px;border-radius:7px;line-height:1.7;pointer-events:none;font:14px ui-monospace,monospace}#fall{color:#ff9999}#toolbar{display:flex;gap:9px;flex-wrap:wrap}kbd{background:#273444;border-radius:3px;padding:2px 5px}#message{min-height:22px;color:#f3bd62}small{color:#91a3b9}
+</style>
+</head>
+<body>
+<header><div><h1>Whole-body student · MuJoCo</h1><p>纯 student · 从站姿开始 · 鼠标施力上限 30 N</p></div><span id="connection">连接中…</span></header>
+<div id="toolbar"><button id="toggle" disabled>开始运行</button><button id="reset" disabled>恢复站姿 R</button><button id="follow" disabled>相机跟随：开 F</button><button id="release" disabled>松手 / 清除拖拽</button></div>
+<div id="viewport"><canvas id="view" width="960" height="600" tabindex="0" aria-label="MuJoCo 交互画面，左键拖拽机器人上半身施力"></canvas><div id="hud">等待 MuJoCo 画面…</div></div>
+<div id="message"></div>
+<p><b>左键拖拽胸部、手臂或手</b>施力，松手卸力。橙色箭头表示实际力，青色点表示选中部位。<br>
+右键拖拽转动视角，<kbd>Shift</kbd> + 右键平移，滚轮缩放。<kbd>空格</kbd>暂停，<kbd>R</kbd>恢复站姿，<kbd>F</kbd>切换跟随。切到后台或断开连接会取消拖拽并暂停。</p>
+<small>策略可能自行移动，松手不保证停止。这里没有额外的站立控制器；每个服务实例只允许一个浏览器标签页控制。</small>
+<script>
+'use strict';
+const token='__TOKEN__',client=crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random();
+const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d');
+const hud=document.querySelector('#hud'),connection=document.querySelector('#connection'),message=document.querySelector('#message');
+const toggle=document.querySelector('#toggle'),reset=document.querySelector('#reset'),follow=document.querySelector('#follow'),release=document.querySelector('#release');
+let state={paused:true},connected=false,owned=false,queue=[],sending=false,button=null,last=null,frameId='',frames=0,fps=0,lastFps=performance.now();
+function controls(enabled){for(const b of [toggle,reset,follow,release])b.disabled=!enabled;}
+function post(event){
+  // Serialize transitions; coalesce moves while an earlier request is in flight.
+  if(event.type==='move' && queue.length && queue.at(-1).type==='move')queue[queue.length-1]=event;
+  else if(queue.length<64)queue.push(event);
+  pump();
+}
+async function pump(){
+  if(sending)return;sending=true;
+  while(queue.length){
+    const event=queue.shift();
+    try{
+      const r=await fetch('/command',{method:'POST',headers:{'Content-Type':'application/json','X-Control-Token':token},body:JSON.stringify({...event,client}),signal:AbortSignal.timeout(2500)});
+      if(r.status===409){owned=false;controls(false);message.textContent='另一个标签页正在控制。关闭它，等待约 3 秒后可接管。';queue=[];break;}
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      owned=true;controls(connected);message.textContent='';
+    }catch(error){owned=false;controls(false);connection.textContent='连接中断，正在重试…';queue=[];button=null;break;}
+  }
+  sending=false;
+}
+function cancel(){button=null;last=null;post({type:'release'});}
+function pause(){cancel();post({type:'pause',paused:true});}
+function coords(e){const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};}
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('pointerdown',e=>{
+  if(!owned || !connected || ![0,2].includes(e.button))return;
+  e.preventDefault();canvas.focus();canvas.setPointerCapture(e.pointerId);button=e.button;last=coords(e);
+  if(button===0)post({type:'down',...last});
+});
+canvas.addEventListener('pointermove',e=>{
+  if(button===null)return;
+  // Lost mouse-up protection, including pointer movement after leaving the window.
+  if((button===0 && !(e.buttons&1)) || (button===2 && !(e.buttons&2))){cancel();return;}
+  const p=coords(e);
+  if(button===0)post({type:'move',...p});
+  else post({type:'camera',dx:(p.x-last.x)*canvas.width/canvas.height,dy:p.y-last.y,pan:e.shiftKey});
+  last=p;
+});
+canvas.addEventListener('pointerup',e=>{cancel();if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);});
+canvas.addEventListener('pointercancel',cancel);canvas.addEventListener('lostpointercapture',()=>{if(button!==null)cancel();});
+canvas.addEventListener('wheel',e=>{e.preventDefault();if(owned)post({type:'zoom',dy:Math.max(-.2,Math.min(.2,e.deltaY*.001))});},{passive:false});
+toggle.onclick=()=>{cancel();post({type:'pause',paused:!state.paused});};
+reset.onclick=()=>{cancel();post({type:'reset'});};follow.onclick=()=>post({type:'follow'});release.onclick=cancel;
+window.addEventListener('keydown',e=>{
+  if(!owned || e.repeat || e.ctrlKey || e.metaKey || e.altKey)return;
+  if(e.code==='Space'){e.preventDefault();toggle.click();}
+  if(e.code==='KeyR')reset.click();if(e.code==='KeyF')follow.click();if(e.code==='Escape')pause();
+});
+window.addEventListener('blur',pause);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+window.addEventListener('pagehide',()=>{
+  fetch('/command',{method:'POST',headers:{'Content-Type':'application/json','X-Control-Token':token},body:JSON.stringify({type:'pause',paused:true,client}),keepalive:true}).catch(()=>{});
+});
+setInterval(()=>{if(!document.hidden)post({type:'heartbeat'});},700);
+async function statusLoop(){
+  try{
+    const r=await fetch('/state',{cache:'no-store',signal:AbortSignal.timeout(2500)});if(!r.ok)throw new Error();
+    state=await r.json();connected=typeof state.time==='number';controls(connected&&owned);
+    if(connected){
+      connection.textContent=(owned?'已连接 · 可控制':'已连接 · 等待控制权')+' · '+fps+' fps';
+      toggle.textContent=state.paused?'开始 / 继续':'暂停';follow.textContent='相机跟随：'+(state.follow?'开':'关')+' F';
+      hud.replaceChildren();
+      const lines=[(state.paused?'已暂停':'运行中')+' · '+state.time.toFixed(2)+' s',
+        (state.selected||'尚未选择施力点')+' · '+state.force_N.toFixed(1)+' N',
+        'Root '+state.root_height.toFixed(2)+' m · 仿真速度 '+state.realtime_factor.toFixed(2)+'×'];
+      for(const line of lines){const d=document.createElement('div');d.textContent=line;hud.append(d);}
+      if(state.fall){const d=document.createElement('div');d.id='fall';d.textContent='检测到跌倒，按 R 复位';hud.append(d);}
+    }
+  }catch(e){connected=false;controls(false);connection.textContent='连接中断，正在重试…';}
+  setTimeout(statusLoop,200);
+}
+async function frameLoop(){
+  const started=performance.now();
+  try{
+    const r=await fetch('/frame.jpg',{cache:'no-store',signal:AbortSignal.timeout(3000)});if(!r.ok)throw new Error();
+    const id=r.headers.get('X-Frame-Id');
+    if(id!==frameId){
+      const blob=await r.blob();if(blob.size){const bitmap=await createImageBitmap(blob);
+        if(canvas.width!==bitmap.width || canvas.height!==bitmap.height){canvas.width=bitmap.width;canvas.height=bitmap.height;canvas.style.aspectRatio=bitmap.width+'/'+bitmap.height;}
+        ctx.drawImage(bitmap,0,0);bitmap.close();frameId=id;frames++;
+      }
+    }
+    const now=performance.now();if(now-lastFps>=1000){fps=Math.round(frames*1000/(now-lastFps));frames=0;lastFps=now;}
+  }catch(e){}
+  setTimeout(frameLoop,Math.max(5,40-(performance.now()-started)));
+}
+post({type:'heartbeat'});statusLoop();frameLoop();
+</script>
+</body></html>
