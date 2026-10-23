@@ -210,3 +210,6 @@ dataset/
 
 # Local reference-generation virtual environments
 .venv-*/
+
+# Official SONIC models are downloaded from pinned upstream URLs with SHA-256 checks.
+deploy/mujoco_whole_body/sonic/*.onnx

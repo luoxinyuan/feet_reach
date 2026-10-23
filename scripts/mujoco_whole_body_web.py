@@ -28,7 +28,7 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 from mujoco_whole_body_student import (
-    DEFAULT_BUNDLE, DEFAULT_MODEL, ROOT, POINT_NAMES, Interactive, Simulation, mujoco, np,
+    DEFAULT_BUNDLE, DEFAULT_MODEL, ROOT, POINT_NAMES, Interactive, Simulation, make_simulation, mujoco, np,
 )
 
 
@@ -264,7 +264,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--host', default='127.0.0.1')
     p.add_argument('--port', type=int, default=8765)
-    p.add_argument('--bundle', type=Path, default=DEFAULT_BUNDLE)
+    p.add_argument('--bundle', type=Path, help='Override the selected policy bundle')
+    p.add_argument('--policy', choices=['direct','sonic','ceer'], default='direct')
     p.add_argument('--model', type=Path, default=DEFAULT_MODEL)
     p.add_argument('--width', type=int, default=960)
     p.add_argument('--height', type=int, default=600)
@@ -275,7 +276,7 @@ def main():
         p.error('Invalid FPS, image size or JPEG quality')
     # Bind before loading physics, so an occupied port fails clearly.
     transport = Transport(args.host, args.port)
-    sim = Simulation(args.bundle, args.model)
+    sim = make_simulation(args.bundle, args.model, args.policy)
     ui = WebInteraction(sim, args.width, args.height)
     running = True
 
@@ -316,7 +317,7 @@ def main():
                     realtime = (sim.data.time-sim_start)/(now-wall_start)
                     wall_start, sim_start = now, sim.data.time
                 jpeg = ui.render_jpeg(args.quality)
-                state = {'time': float(sim.data.time), 'paused': ui.paused, 'connected': connected,
+                state = {'policy': sim.meta.get('backend','direct'), 'initial_height': sim.meta.get('root_height',.74), 'time': float(sim.data.time), 'paused': ui.paused, 'connected': connected,
                     'selected': POINT_NAMES[ui.selected] if ui.selected is not None else None,
                     'force_N': float(np.linalg.norm(sim.forces, axis=1).sum()),
                     'force_limit_N': 30, 'root_height': float(sim.data.qpos[2]),

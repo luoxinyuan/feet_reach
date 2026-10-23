@@ -82,6 +82,7 @@ async function statusLoop(){
     state=await r.json();connected=typeof state.time==='number';controls(connected&&owned);
     if(connected){
       connection.textContent=(owned?'已连接 · 可控制':'已连接 · 等待控制权')+' · '+fps+' fps';
+      document.querySelector('h1').textContent=(state.policy||'direct').toUpperCase()+' · MuJoCo';
       toggle.textContent=state.paused?'开始 / 继续':'暂停';follow.textContent='相机跟随：'+(state.follow?'开':'关')+' F';
       hud.replaceChildren();
       const lines=[(state.paused?'已暂停':'运行中')+' · '+state.time.toFixed(2)+' s',

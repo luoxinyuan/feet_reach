@@ -31,3 +31,30 @@ G1 is a Unitree robot. The source repository credits HansZ8 and supplies
 preserved in [CEER_DEPLOY_LICENSE.txt](CEER_DEPLOY_LICENSE.txt).
 The simulation script adds the training hand force points in memory and overrides
 actuator settings; it does not rewrite the bundled source XML or meshes.
+
+## Residual variants
+
+- `sonic/`: trained residual student (381 public inputs), frozen normalization,
+  motor/interface metadata, pinned official ONNX download URLs and SHA-256 hashes.
+- `ceer/`: trained residual student, normalization, frozen original CEER controller
+  with its joint predictor bypassed, and exported kinematics/motor metadata.
+- `validation_residual.json`: export, adapter, headless and browser test results.
+
+Run `python scripts/mujoco_whole_body_web.py --policy sonic` or `--policy ceer`.
+The original `--policy direct` remains the default. All three share the bundled G1
+meshes. Residual student and CEER weights are ordinary Git files, without Git LFS.
+SONIC's two official ONNX files (about 88 MB) are fetched once into
+`.cache/mujoco-sonic/`; no Hugging Face login is needed. For offline use, copy
+these two files into that cache or `deploy/mujoco_whole_body/sonic/` beforehand;
+the loader still verifies their hashes.
+
+SONIC resources are unmodified exports from
+[nvidia/GEAR-SONIC, revision bfd764a](https://huggingface.co/nvidia/GEAR-SONIC/tree/bfd764a),
+validated against the native controller used in training.
+**Licensed by NVIDIA Corporation under the NVIDIA Open Model License.**
+The original dual-license notice is included in [sonic/SONIC_LICENSE.txt](sonic/SONIC_LICENSE.txt).
+No NVIDIA source library is imported by the standalone runtime. CEER and both
+residual students were exported from this project's trained checkpoints; hashes
+and original run identifiers are recorded in each variant's metadata.
+
+See [residual instructions and limitations](../../scripts/references/README_mujoco_residual.md).

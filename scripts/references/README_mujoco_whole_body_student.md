@@ -119,3 +119,13 @@ python scripts/mujoco_whole_body_web.py --bundle /path/to/export
 ```
 
 导出需要训练 checkpoint 使用的 Python 序列化依赖。原生 PPO 对照检查还需要完整训练环境；这些依赖不属于 demo 安装要求。
+
+
+## Additional residual policies
+
+`--policy sonic` and `--policy ceer` select the new frozen-low-level residual
+students in both the desktop and web commands. `--policy direct` preserves the
+original policy described above. See [residual deployment details](README_mujoco_residual.md)
+for their distinct observations, motor settings, automatic SONIC download and
+measured drift. `--bundle` overrides the selected bundle and uses its metadata
+to choose the adapter.

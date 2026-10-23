@@ -19,6 +19,21 @@ python scripts/mujoco_whole_body_web.py --port 8765
 当前 student 无外力时仍可能漂移，松手不保证停止。
 安装、Windows/macOS/Linux 使用方式及验证范围见 [完整说明](scripts/references/README_mujoco_whole_body_student.md)。
 
+### SONIC / CEER residual student
+
+现在也支持两版 **residual student + frozen low-level**，没有外部 motion reference 或下一帧 target 输入。两版已训练好的 student 和 CEER 底层均随仓库提供；SONIC 官方底层 ONNX 在首次使用时自动下载约 88 MB，固定版本并校验 SHA-256。
+
+```bash
+python -m pip install -r deploy/mujoco_whole_body/requirements.txt
+python scripts/mujoco_whole_body_web.py --policy sonic --port 8776
+# 在另一个终端运行 CEER：
+python scripts/mujoco_whole_body_web.py --policy ceer --port 8777
+```
+
+浏览器分别打开 http://localhost:8776 / http://localhost:8777。远程运行时在 VS Code 转发对应端口；默认暂停于站姿，点击开始后鼠标拖拽施力。原版保留为 `--policy direct`（默认）。
+
+[Residual 接口、验证结果与完整说明](scripts/references/README_mujoco_residual.md)。两版仍有无力漂移，尤其 CEER；松手归零的是外力，不保证机器人立刻停止。
+
 ## Proactive EE tracking（PointNet）
 
 新增双脚支撑、左手 EE tracking 实验：student 输入实时 root 坐标系下的 EE target xyz、本体历史和 PointNet 编码的局部点云，保留 target joint estimator。墙位置独立随机采样，25% 场景无墙；通过 tracking、超过 500 N/s 的接触力正向上升率惩罚（不惩罚接触力绝对值）学习接近行为，不使用距离触发的减速规则。

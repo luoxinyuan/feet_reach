@@ -1,0 +1,59 @@
+# SONIC / CEER residual 的 MuJoCo 交互仿真
+
+运行时只有已训练 student 和 frozen low-level，不读取 AMASS、teacher、motion reference 或下一帧目标。从站立开始，通过鼠标给上半身施力。
+
+## 安装与启动
+
+使用 Python 3.10/3.11，安装现有独立 demo 的依赖：
+
+```bash
+python -m pip install -r deploy/mujoco_whole_body/requirements.txt
+python scripts/mujoco_whole_body_web.py --policy sonic --port 8776
+# 另一终端：
+python scripts/mujoco_whole_body_web.py --policy ceer --port 8777
+```
+
+打开 http://localhost:8776 或 http://localhost:8777。VS Code Remote SSH 用户转发相应端口，然后在自己电脑的浏览器打开。默认只绑定 localhost。
+
+SONIC 首次启动自动从 NVIDIA 官方 Hugging Face 仓库下载两个 ONNX，合计约 88 MB。版本固定为 `bfd764a`，下载完成后校验 SHA-256，再原子写入 `.cache/mujoco-sonic/`。以后启动无需下载。CEER 及两版 student 权重已随仓库提供。无需 CUDA、Isaac Lab、AMASS、训练 checkpoint、SONIC 源码或 Hugging Face 登录。
+
+网页左上角显示当前策略；默认暂停于站立状态。点击开始，用鼠标左键拖拽 torso、肩、肘、手腕或手部；力上限 30 N，有外力箭头。松手释放，空格暂停，R 复位，F 切换相机跟随。浏览器断开自动暂停。
+
+原版直接控制 student 保持为默认 `--policy direct`。桌面 GUI 也支持同样的策略选择：
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy sonic
+python scripts/mujoco_whole_body_student.py --policy ceer
+```
+
+无图形环境可运行数值检查：
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy sonic --headless --seconds 20
+python scripts/mujoco_whole_body_student.py --policy ceer --headless --seconds 12 --test-force
+```
+
+第二条在 5–7 秒给左手施加 15 N 世界 +X 拉力。可用 `--report /path/result.json` 保存结果。
+
+## 控制器接口
+
+Student 以 50 Hz 运行，输入 381 维：角速度、重力方向、5 帧关节角、3 帧 residual 输出、9 个施力点的实际本体系力、关节速度，以及自己生成的关节参考 / 跟踪误差 / 参考更新速度。归一化使用各自训练完成后的固定统计。
+
+Student 的原始 29 维输出用于 `q_ref += 0.02 * 2 * tanh(action)`，遵守训练时的软关节限位及 0.6 rad 跟踪偏差约束。零 residual 严格保持参考，reset 从实际站姿关节角初始化；网络本身仍可能在零外力时输出非零 residual。
+
+- SONIC：官方 encoder + decoder ONNX；10 帧自生成关节参考（速度输入为零）、当前朝向下的直立参考，以及原版 10 帧历史。保留 SONIC 电机增益和 action scaling。
+- CEER：原通用 finetune 的 actor / 状态 estimator 冻结，joint predictor 不加载；5 帧接口直接填入自身 q_ref，并转回原 AMASS 关节顺序。双手接口由同一 q_ref 做 USD 几何 FK；root 接口只用实际高度、速度、当前朝向。保留 CEER action scaling、平滑、延迟及 boot protection。力条件通道固定为 5，实际鼠标力上限仍为 30 N。
+
+两版物理步长 5 ms、控制周期 20 ms；默认站姿、高度、PD、armature、扭矩限制、关节限位均从训练资产导出。CEER 禁止自身碰撞，SONIC 保留模型自身碰撞。接触几何来自随附 MuJoCo G1 XML，接触求解器与训练的 Isaac 不同，不保证轨迹完全一致。
+
+## 已验证结果
+
+- 导出的 residual actor 对原生训练 actor：最大绝对误差约 2.4e-6。
+- portable 对 native frozen low-level：SONIC < 7e-7，CEER 为 0；参考积分误差 < 5e-7；reset 清除历史和 residual 状态。
+- CEER 手部 FK 与训练 USD FK 对齐；具体误差见 CEER metadata。
+- 两版分别无力运行 20 秒、左手 15 N 拉拽 12 秒，状态有限，root 高度未触发跌倒检测（z < 0.4 m）。
+- Chromium 实际测试通过：选点、拖拽、30 N 限幅、松手归零、暂停 / 复位、缩放后选点、连接互斥和断线暂停。测试服务器实时倍率约 1.00。
+
+**当前策略不保证无力静止或松手即停。** 本次 MuJoCo 无力 20 秒，SONIC 最终平移约 0.08 m，CEER 约 1.62 m。此处没有增加额外站立控制器或掩盖漂移的复位逻辑。短时测试不代表任意拖拽都稳定，跌倒可按 R 复位。
+
+发布的机器可读验证记录位于 `deploy/mujoco_whole_body/validation_residual.json`。归一化和模型哈希见各 bundle 的 `SHA256SUMS.json`；SONIC 官方模型哈希及下载地址见其 `metadata.json`。

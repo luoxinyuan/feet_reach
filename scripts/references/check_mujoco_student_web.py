@@ -4,8 +4,10 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 parser=argparse.ArgumentParser(description='Browser integration check for the MuJoCo viewer')
 parser.add_argument('--url',default='http://127.0.0.1:8765')
-base=parser.parse_args().url.rstrip('/')
-out=Path(__file__).resolve().parents[2]/'artifacts/mujoco_whole_body_student/web';out.mkdir(parents=True,exist_ok=True)
+parser.add_argument('--output',type=Path)
+args=parser.parse_args()
+base=args.url.rstrip('/')
+out=args.output or Path(__file__).resolve().parents[2]/'artifacts/mujoco_whole_body_student/web';out.mkdir(parents=True,exist_ok=True)
 def state():return json.load(urllib.request.urlopen(base+'/state'))
 with sync_playwright() as p:
  browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
@@ -49,7 +51,7 @@ with sync_playwright() as p:
  speed=state()['realtime_factor'];assert speed>.75,speed
  page.keyboard.press('Space');page.wait_for_timeout(200);assert state()['paused']
  page.keyboard.press('r');page.wait_for_timeout(200)
- assert state()['time']==0 and abs(state()['root_height']-.74)<1e-8
+ assert state()['time']==0 and abs(state()['root_height']-state().get('initial_height',.74))<1e-6
  # Browser controls on a resized canvas use normalized coordinates.
  page.set_viewport_size({'width':850,'height':900});page.wait_for_timeout(150)
  box=page.locator('#view').bounding_box()

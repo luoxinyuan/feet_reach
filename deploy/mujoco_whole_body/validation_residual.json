@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-23",
+  "adapter_parity": {
+    "sonic": {
+      "reference_integrator_error": 2.864981070160866e-07,
+      "native_low_level_error": 6.556510925292969e-07,
+      "reset_verified": true,
+      "public_observation_dim": 381
+    },
+    "ceer": {
+      "reference_integrator_error": 4.034372977912426e-07,
+      "native_low_level_error": 0.0,
+      "reset_verified": true,
+      "public_observation_dim": 381
+    }
+  },
+  "sonic": {
+    "standing": {
+      "seconds": 20.0,
+      "scripted_force": false,
+      "root_height_min": 0.7512266485162769,
+      "root_height_final": 0.7838053958180234,
+      "first_fall_time": null,
+      "max_force_N": 0.0,
+      "force_observation_max_error": 0.0,
+      "max_abs_action": 4.857087135314941,
+      "finite": true,
+      "root_final_xyz": [
+        0.08246432295730186,
+        0.005654368158079956,
+        0.7838053958180234
+      ]
+    },
+    "pull": {
+      "seconds": 12.0,
+      "scripted_force": true,
+      "root_height_min": 0.7074192792716155,
+      "root_height_final": 0.7803311124842098,
+      "first_fall_time": null,
+      "max_force_N": 15.0,
+      "force_observation_max_error": 4.7590610741110595e-07,
+      "max_abs_action": 6.650346755981445,
+      "finite": true,
+      "root_final_xyz": [
+        3.133407011190013,
+        -1.2203485012292083,
+        0.7803311124842098
+      ]
+    },
+    "browser": {
+      "browser_errors": [],
+      "selected": "torso_link",
+      "drag_force_N": 25.763046717068665,
+      "release_force_N": 0.0,
+      "realtime_factor": 0.9992700819730427,
+      "resized_picking": true,
+      "reset": true,
+      "second_controller_rejected": true,
+      "disconnect_paused": true
+    },
+    "native_actor_error": 2.384185791015625e-06
+  },
+  "ceer": {
+    "standing": {
+      "seconds": 20.0,
+      "scripted_force": false,
+      "root_height_min": 0.7289016370934769,
+      "root_height_final": 0.7821194942502019,
+      "first_fall_time": null,
+      "max_force_N": 0.0,
+      "force_observation_max_error": 0.0,
+      "max_abs_action": 5.69644832611084,
+      "finite": true,
+      "root_final_xyz": [
+        1.4847079140007842,
+        -0.6498795304319738,
+        0.7821194942502019
+      ]
+    },
+    "pull": {
+      "seconds": 12.0,
+      "scripted_force": true,
+      "root_height_min": 0.7289016370934769,
+      "root_height_final": 0.7789364491056882,
+      "first_fall_time": null,
+      "max_force_N": 15.0,
+      "force_observation_max_error": 4.7565049499098677e-07,
+      "max_abs_action": 5.69644832611084,
+      "finite": true,
+      "root_final_xyz": [
+        2.6542879888164284,
+        -3.3151608241848494,
+        0.7789364491056882
+      ]
+    },
+    "browser": {
+      "browser_errors": [],
+      "selected": "torso_link",
+      "drag_force_N": 30.0,
+      "release_force_N": 0.0,
+      "realtime_factor": 0.9992311756753067,
+      "resized_picking": true,
+      "reset": true,
+      "second_controller_rejected": true,
+      "disconnect_paused": true
+    },
+    "native_actor_error": 2.384185791015625e-06
+  }
+}

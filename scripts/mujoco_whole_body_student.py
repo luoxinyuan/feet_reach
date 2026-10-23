@@ -26,7 +26,7 @@ def capped(v, limit):
 
 
 class Simulation:
-    def __init__(self, bundle, model_path, physics_dt=.002):
+    def __init__(self, bundle, model_path, physics_dt=None):
         torch.set_num_threads(1)
         self.meta = json.loads((bundle/'metadata.json').read_text())
         self.policy = torch.jit.load(str(bundle/'student.pt'), map_location='cpu').eval()
@@ -42,6 +42,7 @@ class Simulation:
                 # FixedJoint localPos0 in g1_flat_fullcol.usd (not the rubber mesh origin).
                 ET.SubElement(parent,'body',name=f'{side}_hand_mimic',pos=f'0.116 {0.000016093254 if side=="left" else -0.000016093254} 0.0000046119094')
         self.model = mujoco.MjModel.from_xml_string(ET.tostring(xml.getroot(),encoding='unicode'))
+        physics_dt = physics_dt or self.meta.get('physics_dt', .002)
         self.model.opt.timestep = physics_dt
         self.model.opt.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
         self.model.opt.iterations = 50
@@ -64,7 +65,7 @@ class Simulation:
 
     def reset(self):
         mujoco.mj_resetData(self.model,self.data)
-        self.data.qpos[:3] = [0,0,.74]
+        self.data.qpos[:3] = [0,0,self.meta.get('root_height',.74)]
         self.data.qpos[3:7] = [1,0,0,0]
         self.data.qpos[self.qadr] = self.q0
         mujoco.mj_forward(self.model,self.data)
@@ -96,16 +97,8 @@ class Simulation:
             self.data.xfrc_applied[bid,:3] = force
             self.data.xfrc_applied[bid,3:] = np.cross(self.data.xpos[bid]-self.data.xipos[bid],force)
         if self.steps % self.decimation == 0:
-            self.last_obs = self.observation()
-            with torch.inference_mode():
-                obs = (torch.from_numpy(self.last_obs)-self.loc)/self.scale
-                action = self.policy(obs.unsqueeze(0))[0].numpy().clip(-10,10)
-            if not np.isfinite(action).all():
-                raise RuntimeError('Non-finite policy action')
-            self.last_action = action.copy()
-            self.actions[1:] = self.actions[:-1].copy()
-            self.actions[0] = action
-            self.target = self.q0 + self.meta['action_scale']*action
+            self._update_policy()
+        self._before_torque()
         torque = self.kp*(self.target-self.data.qpos[self.qadr])-self.kd*self.data.qvel[self.vadr]
         self.data.ctrl[self.act] = np.clip(torque,-self.effort,self.effort)
         mujoco.mj_step(self.model,self.data)
@@ -119,6 +112,21 @@ class Simulation:
             self.history[0] = np.mean(self.substep_q,axis=0)
         if self.first_fall is None and self.data.qpos[2] < .4:
             self.first_fall = float(self.data.time)
+
+    def _update_policy(self):
+        self.last_obs = self.observation()
+        with torch.inference_mode():
+            obs = (torch.from_numpy(self.last_obs)-self.loc)/self.scale
+            action = self.policy(obs.unsqueeze(0))[0].numpy().clip(-10,10)
+        if not np.isfinite(action).all():
+            raise RuntimeError('Non-finite policy action')
+        self.last_action = action.copy()
+        self.actions[1:] = self.actions[:-1].copy()
+        self.actions[0] = action
+        self.target = self.q0 + self.meta['action_scale']*action
+
+    def _before_torque(self):
+        pass
 
     def nearest_point(self, body, hit):
         name = self.model.body(body).name
@@ -275,9 +283,19 @@ class Interactive:
             self.context.free(); self.glfw.destroy_window(self.window); self.glfw.terminate()
 
 
+def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
+    bundle = bundle or (DEFAULT_BUNDLE if policy == 'direct' else ROOT / 'deploy/mujoco_whole_body' / policy)
+    backend = json.loads((bundle/'metadata.json').read_text()).get('backend', 'direct')
+    if backend in ('sonic','ceer'):
+        from mujoco_residual import ResidualSimulation
+        return ResidualSimulation(bundle, model_path)
+    return Simulation(bundle, model_path)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--bundle',type=Path,default=DEFAULT_BUNDLE)
+    p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
+    p.add_argument('--policy',choices=['direct','sonic','ceer'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -288,7 +306,7 @@ def main():
     args=p.parse_args()
     if not args.headless and sys.platform.startswith('linux') and not os.environ.get('DISPLAY'):
         p.error('No DISPLAY: run this command in a graphical desktop terminal (or SSH with X forwarding). Use --headless for numerical checks.')
-    s=Simulation(args.bundle,args.model)
+    s=make_simulation(args.bundle,args.model,args.policy)
     if not args.headless:
         Interactive(s).run(args.gui_frames,args.screenshot)
         return
@@ -301,7 +319,7 @@ def main():
         if s.steps%s.decimation==1:
             expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
             # last_obs is before mj_step; verify through observation at the same state instead.
-            maxerror=max(maxerror,float(np.max(np.abs(s.observation()[-27:]-expected))))
+            maxerror=max(maxerror,float(np.max(np.abs(s.observation()[238:265]-expected))))
             actions.append(float(np.max(np.abs(s.last_action))))
     report={'seconds':args.seconds,'scripted_force':args.test_force,'root_height_min':min(heights),
         'root_height_final':heights[-1],'first_fall_time':s.first_fall,'max_force_N':maxforce,
