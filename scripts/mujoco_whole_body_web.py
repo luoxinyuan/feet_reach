@@ -265,7 +265,7 @@ def main():
     p.add_argument('--host', default='127.0.0.1')
     p.add_argument('--port', type=int, default=8765)
     p.add_argument('--bundle', type=Path, help='Override the selected policy bundle')
-    p.add_argument('--policy', choices=['direct','sonic','ceer'], default='direct')
+    p.add_argument('--policy', choices=['direct','sonic','ceer','jacobian'], default='direct')
     p.add_argument('--model', type=Path, default=DEFAULT_MODEL)
     p.add_argument('--width', type=int, default=960)
     p.add_argument('--height', type=int, default=600)

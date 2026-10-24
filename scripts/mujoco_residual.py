@@ -167,7 +167,7 @@ class ResidualSimulation(Simulation):
         self.age+=1
 
     def _before_torque(self):
-        if self.backend=='ceer':
+        if self.backend in ('ceer','jacobian'):
             substep=self.steps%self.decimation
             idx=(self.delay-substep+self.decimation-1)//self.decimation
             delayed=self.low_actions[idx]

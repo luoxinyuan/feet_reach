@@ -286,7 +286,7 @@ class Interactive:
 def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     bundle = bundle or (DEFAULT_BUNDLE if policy == 'direct' else ROOT / 'deploy/mujoco_whole_body' / policy)
     backend = json.loads((bundle/'metadata.json').read_text()).get('backend', 'direct')
-    if backend in ('sonic','ceer'):
+    if backend in ('sonic','ceer','jacobian'):
         from mujoco_residual import ResidualSimulation
         return ResidualSimulation(bundle, model_path)
     return Simulation(bundle, model_path)
@@ -295,7 +295,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)

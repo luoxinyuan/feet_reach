@@ -1,4 +1,4 @@
-# SONIC / CEER residual 的 MuJoCo 交互仿真
+# SONIC / CEER residual 与 Jacobian policy 的 MuJoCo 交互仿真
 
 运行时只有已训练 student 和 frozen low-level，不读取 AMASS、teacher、motion reference 或下一帧目标。从站立开始，通过鼠标给上半身施力。
 
@@ -11,6 +11,8 @@ python -m pip install -r deploy/mujoco_whole_body/requirements.txt
 python scripts/mujoco_whole_body_web.py --policy sonic --port 8776
 # 另一终端：
 python scripts/mujoco_whole_body_web.py --policy ceer --port 8777
+# Jacobian compliance policy：
+python scripts/mujoco_whole_body_web.py --policy jacobian --port 8778
 ```
 
 打开 http://localhost:8776 或 http://localhost:8777。VS Code Remote SSH 用户转发相应端口，然后在自己电脑的浏览器打开。默认只绑定 localhost。
@@ -35,6 +37,16 @@ python scripts/mujoco_whole_body_student.py --policy ceer --headless --seconds 1
 
 第二条在 5–7 秒给左手施加 15 N 世界 +X 拉力。可用 `--report /path/result.json` 保存结果。
 
+## Jacobian policy
+
+`--policy jacobian` loads the Jacobian compliance checkpoint exported to
+`deploy/mujoco_whole_body/jacobian/`. It uses the checkpoint's 381-dimensional
+residual actor, frozen observation normalization, and the exact frozen CEER
+low-level controller referenced by that run. Dragging applies the same point forces
+and force observation used by the other interactive policies. The checkpoint hash
+and source run are recorded in the bundle metadata. Export from a training
+environment using the Jacobian checkpoint recorded in that bundle's metadata.
+
 ## 控制器接口
 
 Student 以 50 Hz 运行，输入 381 维：角速度、重力方向、5 帧关节角、3 帧 residual 输出、9 个施力点的实际本体系力、关节速度，以及自己生成的关节参考 / 跟踪误差 / 参考更新速度。归一化使用各自训练完成后的固定统计。
@@ -43,6 +55,7 @@ Student 的原始 29 维输出用于 `q_ref += 0.02 * 2 * tanh(action)`，遵守
 
 - SONIC：官方 encoder + decoder ONNX；10 帧自生成关节参考（速度输入为零）、当前朝向下的直立参考，以及原版 10 帧历史。保留 SONIC 电机增益和 action scaling。
 - CEER：原通用 finetune 的 actor / 状态 estimator 冻结，joint predictor 不加载；5 帧接口直接填入自身 q_ref，并转回原 AMASS 关节顺序。双手接口由同一 q_ref 做 USD 几何 FK；root 接口只用实际高度、速度、当前朝向。保留 CEER action scaling、平滑、延迟及 boot protection。力条件通道固定为 5，实际鼠标力上限仍为 30 N。
+- Jacobian：使用 Jacobian checkpoint 导出的 381 维 student、对应 VecNorm，以及该 checkpoint 引用的冻结 CEER low-level；参考积分、CEER joint order、FK 接口、力通道和 actuator 参数均从该 checkpoint 配置导出。
 
 两版物理步长 5 ms、控制周期 20 ms；默认站姿、高度、PD、armature、扭矩限制、关节限位均从训练资产导出。CEER 禁止自身碰撞，SONIC 保留模型自身碰撞。接触几何来自随附 MuJoCo G1 XML，接触求解器与训练的 Isaac 不同，不保证轨迹完全一致。
 

@@ -38,11 +38,15 @@ actuator settings; it does not rewrite the bundled source XML or meshes.
   motor/interface metadata, pinned official ONNX download URLs and SHA-256 hashes.
 - `ceer/`: trained residual student, normalization, frozen original CEER controller
   with its joint predictor bypassed, and exported kinematics/motor metadata.
+- `jacobian/`: the Jacobian compliance residual student and the exact frozen CEER
+  low-level controller used by its training checkpoint, with its own normalization
+  and kinematics/motor metadata.
 - `validation_residual.json`: export, adapter, headless and browser test results.
 
-Run `python scripts/mujoco_whole_body_web.py --policy sonic` or `--policy ceer`.
-The original `--policy direct` remains the default. All three share the bundled G1
-meshes. Residual student and CEER weights are ordinary Git files, without Git LFS.
+Run `python scripts/mujoco_whole_body_web.py --policy sonic`, `--policy ceer`, or
+`--policy jacobian`. The original `--policy direct` remains the default. All policies
+share the bundled G1 meshes. Residual student and CEER weights are ordinary Git
+files, without Git LFS.
 SONIC's two official ONNX files (about 88 MB) are fetched once into
 `.cache/mujoco-sonic/`; no Hugging Face login is needed. For offline use, copy
 these two files into that cache or `deploy/mujoco_whole_body/sonic/` beforehand;
@@ -53,7 +57,7 @@ SONIC resources are unmodified exports from
 validated against the native controller used in training.
 **Licensed by NVIDIA Corporation under the NVIDIA Open Model License.**
 The original dual-license notice is included in [sonic/SONIC_LICENSE.txt](sonic/SONIC_LICENSE.txt).
-No NVIDIA source library is imported by the standalone runtime. CEER and both
+No NVIDIA source library is imported by the standalone runtime. CEER and all
 residual students were exported from this project's trained checkpoints; hashes
 and original run identifiers are recorded in each variant's metadata.
 
