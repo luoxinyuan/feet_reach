@@ -62,3 +62,11 @@ residual students were exported from this project's trained checkpoints; hashes
 and original run identifiers are recorded in each variant's metadata.
 
 See [residual instructions and limitations](../../scripts/references/README_mujoco_residual.md).
+
+## Segmented Jacobian variant
+
+`segmented/` contains the completed 18-point CEER residual model (run `00lci6cu`),
+its frozen CEER controller, normalization and application-point metadata. This is
+separate from the AMP experiment. Launch with `--policy segmented` in either
+interactive entry point; see the [instructions and measured limitations](../../scripts/references/README_mujoco_residual.md#分段施力版segmented18-个候选点).
+No reference motion, force cache or training dependencies are needed at runtime.

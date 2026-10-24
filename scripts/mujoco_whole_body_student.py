@@ -41,6 +41,8 @@ class Simulation:
             if xml.find(f".//body[@name='{side}_hand_mimic']") is None:
                 # FixedJoint localPos0 in g1_flat_fullcol.usd (not the rubber mesh origin).
                 ET.SubElement(parent,'body',name=f'{side}_hand_mimic',pos=f'0.116 {0.000016093254 if side=="left" else -0.000016093254} 0.0000046119094')
+        if any(p['body']=='head_mimic' for p in self.meta.get('force_points', [])):
+            ET.SubElement(xml.find(".//body[@name='torso_link']"),'body',name='head_mimic',pos='.01 0 .41')
         self.model = mujoco.MjModel.from_xml_string(ET.tostring(xml.getroot(),encoding='unicode'))
         physics_dt = physics_dt or self.meta.get('physics_dt', .002)
         self.model.opt.timestep = physics_dt
@@ -57,7 +59,10 @@ class Simulation:
         self.model.dof_armature[self.vadr] = self.meta['armature']
         self.model.dof_damping[self.vadr] = 0.
         self.model.dof_frictionloss[self.vadr] = 0.
-        self.points = np.array([self.model.body(n).id for n in POINT_NAMES])
+        specs=self.meta.get('force_points',[dict(name=n,body=n,offset=[0,0,0]) for n in POINT_NAMES])
+        self.point_names=[p['name'] for p in specs]
+        self.points=np.array([self.model.body(p['body']).id for p in specs])
+        self.point_offsets=np.array([p['offset'] for p in specs],dtype=float)
         self.root = self.model.body('pelvis').id
         self.decimation = round(self.meta['policy_dt']/physics_dt)
         assert abs(self.decimation*physics_dt-.02)<1e-9
@@ -72,10 +77,10 @@ class Simulation:
         self.history = np.tile(self.q0,(5,1))  # absolute q, most recent first
         self.actions = np.zeros((3,29))
         self.target = self.q0.copy()
-        self.forces = np.zeros((9,3))
+        self.forces = np.zeros((len(self.points),3))
         self.substep_q = [self.q0.copy(),self.q0.copy()]
         self.steps = 0
-        self.last_obs = np.zeros(265)
+        self.last_obs = np.zeros(self.meta.get('obs_dim',238+self.forces.size))
         self.last_action = np.zeros(29)
         self.first_fall = None
 
@@ -88,14 +93,14 @@ class Simulation:
 
     def step(self, desired):
         # Observation and physics use the same limited force; no hidden wrench.
-        for i in range(9):
+        for i in range(len(self.points)):
             goal = capped(desired[i],self.meta['force_limit'])
             self.forces[i] += capped(goal-self.forces[i],self.meta['force_slew']*self.model.opt.timestep)
         self.data.xfrc_applied[:] = 0.
-        for bid, force in zip(self.points,self.forces):
-            # xfrc_applied acts at COM. Shift to body origin to match Isaac's application site.
-            self.data.xfrc_applied[bid,:3] = force
-            self.data.xfrc_applied[bid,3:] = np.cross(self.data.xpos[bid]-self.data.xipos[bid],force)
+        for bid, point, force in zip(self.points,self.point_positions(),self.forces):
+            # xfrc_applied acts at COM; shift each point load and sum shared-body wrenches.
+            self.data.xfrc_applied[bid,:3] += force
+            self.data.xfrc_applied[bid,3:] += np.cross(point-self.data.xipos[bid],force)
         if self.steps % self.decimation == 0:
             self._update_policy()
         self._before_torque()
@@ -128,15 +133,20 @@ class Simulation:
     def _before_torque(self):
         pass
 
+    def point_positions(self):
+        return self.data.xpos[self.points]+np.einsum('nij,nj->ni',self.data.xmat[self.points].reshape(-1,3,3),self.point_offsets)
+
     def nearest_point(self, body, hit):
-        name = self.model.body(body).name
-        if not any(x in name for x in ('torso','waist_pitch','shoulder','elbow','wrist','hand')):
+        name=self.model.body(body).name
+        if not any(x in name for x in ('torso','waist_pitch','shoulder','elbow','wrist','hand','head')):
             return None
-        candidates = list(range(9))
-        if name.startswith('left_'): candidates = list(range(1,5))
-        elif name.startswith('right_'): candidates = list(range(5,9))
-        else: candidates = [0]
-        return min(candidates,key=lambda i:np.linalg.norm(self.data.xpos[self.points[i]]-hit))
+        candidates=list(range(len(self.points)))
+        if name.startswith(('left_','right_')):
+            side=name.split('_')[0]
+            candidates=[i for i,b in enumerate(self.points) if self.model.body(b).name.startswith(side+'_')]
+        else:
+            candidates=[i for i,b in enumerate(self.points) if not self.model.body(b).name.startswith(('left_','right_'))]
+        return min(candidates,key=lambda i:np.linalg.norm(self.point_positions()[i]-hit))
 
 
 class Interactive:
@@ -199,7 +209,7 @@ class Interactive:
         if point is None: return
         self.selected=point; self.dragging=True
         self.plane_point=hit.copy(); self.plane_normal=np.array(self.scene.camera[0].forward,dtype=float)
-        self.anchor=self.sim.data.xpos[self.sim.points[point]].copy()
+        self.anchor=self.sim.point_positions()[point].copy()
         self.mouse_anchor=self.plane_hit(x,y)
         self.goal=self.anchor.copy()
 
@@ -227,12 +237,14 @@ class Interactive:
             self.sim.reset(); self.selected=None; self.dragging=False
 
     def desired_force(self):
-        desired=np.zeros((9,3))
+        desired=np.zeros_like(self.sim.forces)
         if self.dragging:
             i=self.selected; bid=self.sim.points[i]
             vel=np.zeros(6)
             mujoco.mj_objectVelocity(self.sim.model,self.sim.data,mujoco.mjtObj.mjOBJ_BODY,bid,vel,0)
-            desired[i]=80*(self.goal-self.sim.data.xpos[bid])-4*vel[3:]
+            point=self.sim.point_positions()[i]
+            point_vel=vel[3:]+np.cross(vel[:3],point-self.sim.data.xipos[bid])
+            desired[i]=80*(self.goal-point)-4*point_vel
         return desired
 
     def render(self):
@@ -241,19 +253,19 @@ class Interactive:
         self.update_scene()
         for i,force in enumerate(s.forces):
             if np.linalg.norm(force)<.05: continue
-            start=s.data.xpos[s.points[i]]
+            start=s.point_positions()[i]
             geom=self.scene.geoms[self.scene.ngeom]
             mujoco.mjv_initGeom(geom,mujoco.mjtGeom.mjGEOM_ARROW,np.zeros(3),np.zeros(3),np.eye(3).ravel(),np.array([1,.35,.05,1],dtype=np.float32))
             mujoco.mjv_connector(geom,mujoco.mjtGeom.mjGEOM_ARROW,.012,start,start+.02*force)
             self.scene.ngeom+=1
         if self.selected is not None:
             geom=self.scene.geoms[self.scene.ngeom]
-            mujoco.mjv_initGeom(geom,mujoco.mjtGeom.mjGEOM_SPHERE,np.array([.025]*3),s.data.xpos[s.points[self.selected]],np.eye(3).ravel(),np.array([.1,1,.9,1],dtype=np.float32))
+            mujoco.mjv_initGeom(geom,mujoco.mjtGeom.mjGEOM_SPHERE,np.array([.025]*3),s.point_positions()[self.selected],np.eye(3).ravel(),np.array([.1,1,.9,1],dtype=np.float32))
             self.scene.ngeom+=1
         w,h=self.glfw.get_framebuffer_size(self.window); viewport=mujoco.MjrRect(0,0,w,h)
         mujoco.mjr_render(viewport,self.scene,self.context)
         magnitude=float(np.linalg.norm(s.forces,axis=1).sum())
-        name=POINT_NAMES[self.selected] if self.selected is not None else 'none'
+        name=s.point_names[self.selected] if self.selected is not None else 'none'
         status=f"PURE STUDENT  t={s.data.time:.2f}s  {'PAUSED' if self.paused else 'RUNNING'}\nPoint: {name} | force {magnitude:.1f} N (cap 30 N)\nRoot height {s.data.qpos[2]:.2f} m"
         if s.first_fall is not None: status+='\nFALL DETECTED -- R to reset'
         mujoco.mjr_overlay(mujoco.mjtFont.mjFONT_NORMAL,mujoco.mjtGridPos.mjGRID_TOPLEFT,viewport,status,'',self.context)
@@ -286,7 +298,7 @@ class Interactive:
 def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     bundle = bundle or (DEFAULT_BUNDLE if policy == 'direct' else ROOT / 'deploy/mujoco_whole_body' / policy)
     backend = json.loads((bundle/'metadata.json').read_text()).get('backend', 'direct')
-    if backend in ('sonic','ceer','jacobian'):
+    if backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
         return ResidualSimulation(bundle, model_path)
     return Simulation(bundle, model_path)
@@ -295,7 +307,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','segmented'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -312,14 +324,14 @@ def main():
         return
     heights=[]; maxforce=0.; maxerror=0.; actions=[]
     for _ in range(round(args.seconds/s.model.opt.timestep)):
-        desired=np.zeros((9,3))
+        desired=np.zeros_like(s.forces)
         if args.test_force and 5<=s.data.time<7: desired[4]=[15,0,0]
         s.step(desired)
         heights.append(float(s.data.qpos[2])); maxforce=max(maxforce,float(np.linalg.norm(s.forces,axis=1).max()))
         if s.steps%s.decimation==1:
             expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
             # last_obs is before mj_step; verify through observation at the same state instead.
-            maxerror=max(maxerror,float(np.max(np.abs(s.observation()[238:265]-expected))))
+            maxerror=max(maxerror,float(np.max(np.abs(s.observation()[238:238+s.forces.size]-expected))))
             actions.append(float(np.max(np.abs(s.last_action))))
     report={'seconds':args.seconds,'scripted_force':args.test_force,'root_height_min':min(heights),
         'root_height_final':heights[-1],'first_fall_time':s.first_fall,'max_force_N':maxforce,

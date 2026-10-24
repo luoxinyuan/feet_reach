@@ -100,7 +100,7 @@ class WebInteraction(Interactive):
                         self.selected, self.dragging = point, True
                         self.plane_point = hit.copy()
                         self.plane_normal = np.array(self.scene.camera[0].forward, dtype=float)
-                        self.anchor = self.sim.data.xpos[self.sim.points[point]].copy()
+                        self.anchor = self.sim.point_positions()[point].copy()
                         self.mouse_anchor = self.plane_hit(x, y)
                         self.goal = self.anchor.copy()
             elif self.dragging:
@@ -129,7 +129,7 @@ class WebInteraction(Interactive):
         for i, force in enumerate(s.forces):
             if np.linalg.norm(force) < .05:
                 continue
-            start = s.data.xpos[s.points[i]]
+            start = s.point_positions()[i]
             geom = self.scene.geoms[self.scene.ngeom]
             mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_ARROW, np.zeros(3), np.zeros(3),
                 np.eye(3).ravel(), np.array([1, .35, .05, 1], dtype=np.float32))
@@ -138,7 +138,7 @@ class WebInteraction(Interactive):
         if self.selected is not None:
             geom = self.scene.geoms[self.scene.ngeom]
             mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_SPHERE, np.array([.025]*3),
-                s.data.xpos[s.points[self.selected]], np.eye(3).ravel(), np.array([.1, 1, .9, 1], dtype=np.float32))
+                s.point_positions()[self.selected], np.eye(3).ravel(), np.array([.1, 1, .9, 1], dtype=np.float32))
             self.scene.ngeom += 1
         frame = self.renderer.render()
         output = io.BytesIO()
@@ -265,7 +265,7 @@ def main():
     p.add_argument('--host', default='127.0.0.1')
     p.add_argument('--port', type=int, default=8765)
     p.add_argument('--bundle', type=Path, help='Override the selected policy bundle')
-    p.add_argument('--policy', choices=['direct','sonic','ceer','jacobian'], default='direct')
+    p.add_argument('--policy', choices=['direct','sonic','ceer','jacobian','segmented'], default='direct')
     p.add_argument('--model', type=Path, default=DEFAULT_MODEL)
     p.add_argument('--width', type=int, default=960)
     p.add_argument('--height', type=int, default=600)
@@ -318,7 +318,7 @@ def main():
                     wall_start, sim_start = now, sim.data.time
                 jpeg = ui.render_jpeg(args.quality)
                 state = {'policy': sim.meta.get('backend','direct'), 'initial_height': sim.meta.get('root_height',.74), 'time': float(sim.data.time), 'paused': ui.paused, 'connected': connected,
-                    'selected': POINT_NAMES[ui.selected] if ui.selected is not None else None,
+                    'selected': sim.point_names[ui.selected] if ui.selected is not None else None,
                     'force_N': float(np.linalg.norm(sim.forces, axis=1).sum()),
                     'force_limit_N': 30, 'root_height': float(sim.data.qpos[2]),
                     'fall': sim.first_fall is not None, 'follow': ui.follow, 'dragging': ui.dragging,

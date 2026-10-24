@@ -98,7 +98,7 @@ class ResidualSimulation(Simulation):
         self.delay=int(self.rng.integers(lo,hi+1));self.boot_delay=self.delay if lowcfg.get('boot_protect',False) else 0
         self.alpha=float(self.rng.uniform(*lowcfg.get('alpha',[.9,.9])))
         self.boot_q=self.data.qpos[self.qadr].copy()
-        self.last_obs=np.zeros(381,dtype=np.float32)
+        self.last_obs=np.zeros(self.meta['obs_dim'],dtype=np.float32)
 
     def observation(self):
         public=super().observation()
@@ -167,7 +167,7 @@ class ResidualSimulation(Simulation):
         self.age+=1
 
     def _before_torque(self):
-        if self.backend in ('ceer','jacobian'):
+        if self.backend in ('ceer','jacobian','segmented'):
             substep=self.steps%self.decimation
             idx=(self.delay-substep+self.decimation-1)//self.decimation
             delayed=self.low_actions[idx]

@@ -1,0 +1,58 @@
+{
+  "checkpoint_sha256": "538a429593992a2e191bbc3f0be649f16b1540ab551d858b715ded205264f669",
+  "native_actor_max_error": 2.384185791015625e-06,
+  "native_low_level_max_error": 0.0,
+  "native_fk_max_error": 1.3262033462524414e-06,
+  "point_checks": {
+    "points": 18,
+    "obs_dim": 408,
+    "force_observation_max_error": 2.7270404268087134e-08,
+    "net_wrench": true,
+    "generalized_force": true,
+    "reset": true,
+    "picking": true
+  },
+  "standing": {
+    "seconds": 20.0,
+    "scripted_force": false,
+    "root_height_min": 0.7404859975051252,
+    "root_height_final": 0.7862707711210238,
+    "first_fall_time": null,
+    "max_force_N": 0.0,
+    "force_observation_max_error": 0.0,
+    "max_abs_action": 4.224480628967285,
+    "finite": true,
+    "root_final_xyz": [
+      0.04877674601441056,
+      -0.021598328662869457,
+      0.7862707711210238
+    ]
+  },
+  "left_hand_15N": {
+    "seconds": 12.0,
+    "scripted_force": true,
+    "root_height_min": 0.08047228385036796,
+    "root_height_final": 0.12881254108131607,
+    "first_fall_time": 7.169999999999869,
+    "max_force_N": 15.0,
+    "force_observation_max_error": 4.6824157351466056e-07,
+    "max_abs_action": 6.445374965667725,
+    "finite": true,
+    "root_final_xyz": [
+      3.3774796109318634,
+      -1.027580787841051,
+      0.12881254108131607
+    ]
+  },
+  "browser": {
+    "browser_errors": [],
+    "selected": "torso_front",
+    "drag_force_N": 30.000000000000004,
+    "release_force_N": 0.0,
+    "realtime_factor": 0.9984069786134442,
+    "resized_picking": true,
+    "reset": true,
+    "second_controller_rejected": true,
+    "disconnect_paused": true
+  }
+}

@@ -70,3 +70,34 @@ Student 的原始 29 维输出用于 `q_ref += 0.02 * 2 * tanh(action)`，遵守
 **当前策略不保证无力静止或松手即停。** 本次 MuJoCo 无力 20 秒，SONIC 最终平移约 0.08 m，CEER 约 1.62 m。此处没有增加额外站立控制器或掩盖漂移的复位逻辑。短时测试不代表任意拖拽都稳定，跌倒可按 R 复位。
 
 发布的机器可读验证记录位于 `deploy/mujoco_whole_body/validation_residual.json`。归一化和模型哈希见各 bundle 的 `SHA256SUMS.json`；SONIC 官方模型哈希及下载地址见其 `metadata.json`。
+
+## 分段施力版（segmented，18 个候选点）
+
+新增 `--policy segmented`，对应已完成训练的分段 Jacobian CEER residual
+checkpoint `full_20261024_122951 / 00lci6cu / checkpoint_final.pt`，不是正在训练的 AMP 版。
+权重随仓库发布，无需 Isaac、AMASS、施力缓存或训练 checkpoint。
+
+```bash
+pip install -r deploy/mujoco_whole_body/requirements.txt
+# 本机桌面窗口
+python scripts/mujoco_whole_body_student.py --policy segmented
+# 或浏览器交互；远程 VS Code 转发 8779 端口
+python scripts/mujoco_whole_body_web.py --policy segmented --port 8779
+```
+
+浏览器打开 `http://127.0.0.1:8779`。从站立暂停状态开始，空格开始/暂停，
+鼠标左键拖动上半身，R 复位。鼠标选中最近的候选施力点，箭头显示实际外力，
+单点上限 30 N。支持胸、背、躯干两侧、左右上臂/前臂、肩肘腕手和一个头部中心点。
+点击头部几何会映射到头部中心；不把额外力矩直接输入 student。
+
+该版输入 408 维，其中 18×3=54 维为各点实际施力的机器人本体系表示，
+其余仍为自身状态、历史输出和自己生成的参考。没有下一帧目标或 motion reference。
+相同刚体上的多个点保留独立观测通道；仿真合并它们的力和关于质心的力矩。
+冻结 CEER 接收 residual 更新的关节参考，所有网络在 CPU 推理。
+
+验证：导出 actor 与训练模型最大误差 2.39e-6，冻结 CEER 导出误差为 0；
+18 点逐点输入、位置选择、合力/力矩、广义力以及复位检查通过。
+MuJoCo 无外力运行 20 秒未跌倒，最终水平位移约 5.3 cm；
+5–7 秒给左手施加 15 N 的测试在约 7.17 秒跌倒。
+因此可用于交互对比，但此版不保证任意拖拽稳定，也不保证松手保持。
+验证记录见 `deploy/mujoco_whole_body/validation_segmented.json`。
