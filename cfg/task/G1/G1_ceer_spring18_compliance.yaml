@@ -1,0 +1,29 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_compliance
+  - _self_
+name: G1CEERSpring18ResidualCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.expanded_spring_compliance.ExpandedSpringComplianceCommand
+  force_points:
+    # Preserve the original nine point identities first.
+    - {name: torso_origin, body: torso_link, offset: [0., 0., 0.]}
+    - {name: left_shoulder, body: left_shoulder_roll_link, offset: [0., 0., 0.]}
+    - {name: left_elbow, body: left_elbow_link, offset: [0., 0., 0.]}
+    - {name: left_wrist, body: left_wrist_roll_link, offset: [0., 0., 0.]}
+    - {name: left_hand, body: left_hand_mimic, offset: [0., 0., 0.]}
+    - {name: right_shoulder, body: right_shoulder_roll_link, offset: [0., 0., 0.]}
+    - {name: right_elbow, body: right_elbow_link, offset: [0., 0., 0.]}
+    - {name: right_wrist, body: right_wrist_roll_link, offset: [0., 0., 0.]}
+    - {name: right_hand, body: right_hand_mimic, offset: [0., 0., 0.]}
+    # Fixed local points, in metres; torso x forward, y left, z up.
+    - {name: torso_front, body: torso_link, offset: [0.08, 0., 0.18]}
+    - {name: torso_back, body: torso_link, offset: [-0.08, 0., 0.18]}
+    - {name: torso_left, body: torso_link, offset: [0., 0.10, 0.18]}
+    - {name: torso_right, body: torso_link, offset: [0., -0.10, 0.18]}
+    # Upper arm midpoint (shoulder-yaw to elbow); forearm midpoint (elbow to wrist).
+    - {name: left_upper_arm, body: left_shoulder_yaw_link, offset: [0.0078915, 0., -0.040259]}
+    - {name: right_upper_arm, body: right_shoulder_yaw_link, offset: [0.0078915, 0., -0.040259]}
+    - {name: left_forearm, body: left_elbow_link, offset: [0.05, 0.000943955, -0.005]}
+    - {name: right_forearm, body: right_elbow_link, offset: [0.05, -0.000943955, -0.005]}
+    - {name: head_center, body: head_mimic, offset: [0., 0., 0.]}

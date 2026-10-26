@@ -1,0 +1,11 @@
+# @package algo
+defaults:
+  - root_ppo
+  - _self_
+_target_: active_adaptation.learning.hierarchical.sonic_residual_ppo.SonicResidualPPO
+name: sonic_residual
+in_keys: [policy]
+critic_in_keys: [policy, priv, joint_target]
+init_noise_scale: 0.3
+vecnorm: train
+lr: 3.0e-5

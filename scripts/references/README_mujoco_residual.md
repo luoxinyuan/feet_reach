@@ -101,3 +101,23 @@ MuJoCo 无外力运行 20 秒未跌倒，最终水平位移约 5.3 cm；
 5–7 秒给左手施加 15 N 的测试在约 7.17 秒跌倒。
 因此可用于交互对比，但此版不保证任意拖拽稳定，也不保证松手保持。
 验证记录见 `deploy/mujoco_whole_body/validation_segmented.json`。
+
+### 静止轨迹增强版
+
+最近一次评测的 static-hold augmented checkpoint 已单独打包为
+`deploy/mujoco_whole_body/segmented-static-hold/`，保留原 `segmented/` 版本。
+桌面运行：
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy segmented-static-hold
+```
+
+浏览器运行：
+
+```bash
+python scripts/mujoco_whole_body_web.py --policy segmented-static-hold --port 8780
+```
+
+对应 checkpoint 为 `static_hold_aug_20261025_165158 / 3dlvh2d9`。该 policy
+在单手施力后被动手臂抬高超过 10 cm 的比例由 13.7% 降至 4.3%；左右侧表现不完全一致，
+详细评测见 `artifacts/ceer_segmented_singlehand_stop_eval_20261025/README.md`。

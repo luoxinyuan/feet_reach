@@ -307,7 +307,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','segmented'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','segmented','segmented-static-hold'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)

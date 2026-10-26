@@ -1,0 +1,7 @@
+# @package algo
+defaults:
+  - passive_compliance
+  - _self_
+name: passive_spring_direct
+priv_in_keys: [priv]
+direct_priv_keys: [joint_target]

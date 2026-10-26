@@ -61,3 +61,27 @@ class ContactEvents:
         self.force_previous.copy_(force)
         self.age += active.long()
         return delta_j, delta_p, growth
+
+
+class ContinuousForceRates:
+    """Uncapped linear excess rates at physics frequency, independent of events."""
+    def __init__(self, n, device, dt, threshold=500., scale=5000.):
+        self.dt, self.threshold, self.scale = dt, threshold, scale
+        self.previous = torch.zeros(n, device=device)
+        self.established = torch.zeros(n, dtype=torch.bool, device=device)
+
+    def reset(self, ids):
+        self.previous[ids] = 0
+        self.established[ids] = False
+
+    def advance(self, force, wall_present, required):
+        force = force * wall_present
+        rate = (force - self.previous) / self.dt
+        # Remember contact through brief separations, but allow task withdrawal.
+        self.established &= required & wall_present
+        self.established |= (force > 1.) & required & wall_present
+        rise = (rate - self.threshold).clamp_min(0) / self.scale
+        fall = (-rate - self.threshold).clamp_min(0) / self.scale
+        fall *= self.established & required & wall_present
+        self.previous.copy_(force)
+        return rise * wall_present, fall

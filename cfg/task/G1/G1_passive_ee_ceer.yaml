@@ -1,0 +1,10 @@
+# @package task
+defaults:
+  - /task/G1/G1_passive_ee_continuous
+  - _self_
+name: G1PassiveEECEER
+command:
+  _target_: active_adaptation.envs.mdp.commands.passive_ee_ceer.PassiveEECEERCommand
+  guidance_enabled: false
+  reward_sigma:
+    ee: [0.2]

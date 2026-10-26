@@ -1,0 +1,25 @@
+# @package task
+defaults:
+  - /task/G1/G1_passive_ee_amass
+  - _self_
+name: G1PassiveEEContinuous
+command:
+  _target_: active_adaptation.envs.mdp.commands.passive_ee_continuous.PassiveEEContinuousCommand
+  guidance_enabled: false
+  transition_steps: [25, 50]
+  ramp_seconds: 0.2
+  dataset:
+    mem_paths:
+      - passive_ee_continuous/train/move
+      - passive_ee_continuous/train/hold
+    path_weights: [0.8, 0.2]
+  dataset_extra_keys:
+    - name: is_hold
+      shape: 1
+      dtype: float32
+  reward_sigma:
+    ee: [0.1, 0.05]
+reward:
+  tracking:
+    ee_tracking:
+      weight: 2.0

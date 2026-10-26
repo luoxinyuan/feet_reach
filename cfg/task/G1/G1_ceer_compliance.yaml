@@ -1,0 +1,12 @@
+# @package task
+defaults:
+  - /task/G1/G1_sonic_compliance
+  - _self_
+name: G1CEERResidualCompliance
+robot:
+  name: g1_col_full
+action:
+  _target_: active_adaptation.envs.mdp.ceer_residual.CEERResidualAction
+  ceer_checkpoint: .cache/ceer/checkpoint_final.pt
+  # CEER conditioning channel; physical guidance remains 30 N per point.
+  ceer_force_limit: 5.0

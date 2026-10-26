@@ -1,0 +1,11 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_segmented_compliance
+  - _self_
+name: G1CEERSegmentedAMPResidualCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.amp_compliance.AMPComplianceCommand
+observation:
+  # Trailing underscore excludes this group from public VecNorm.
+  amp_state_:
+    amp_actual_motion: {}

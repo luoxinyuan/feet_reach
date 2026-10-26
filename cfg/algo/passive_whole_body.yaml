@@ -1,0 +1,6 @@
+# @package algo
+defaults:
+  - ppo_train
+  - _self_
+name: passive_whole_body
+symmetry_augmentation: false

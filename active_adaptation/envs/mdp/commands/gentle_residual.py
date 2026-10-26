@@ -86,10 +86,13 @@ class GentleResidualCommand(ProactiveResidualCommand):
         return (-self.contact_late_penalty_max*ramp*missing
                 -self.unexpected_contact_score*unexpected).unsqueeze(-1)
 
+    def hand_wall_distance(self):
+        hand = self.asset.data.body_pos_w[:, self.hand_asset]
+        return self.wall_x + self.env.scene.env_origins[:, 0] - hand[:, 0]
+
     @reward
     def gentle_approach(self):
-        hand = self.asset.data.body_pos_w[:, self.hand_asset]
-        distance = self.wall_x + self.env.scene.env_origins[:, 0] - hand[:, 0]
+        distance = self.hand_wall_distance()
         width = self.gentle.get('approach_distance', .1)
         gate = (1.-distance/width).clamp(0., 1.)
         gate = gate.square()*(3.-2.*gate)
@@ -146,3 +149,71 @@ class GentleResidualCommand(ProactiveResidualCommand):
                 'gentle/impulse_p95_Ns': torch.quantile(j, .95).item() if j.numel() else 0.,
                 'gentle/approach_penalty': -self.gentle_approach().mean().item(),
             })
+
+
+class ContinuousGentleResidualCommand(GentleResidualCommand):
+    """C/D: continuous force-rate costs; D additionally damps rapid unloading."""
+    def __init__(self, env, *args, **kwargs):
+        super().__init__(env, *args, **kwargs)
+        from active_adaptation.utils.gentle_contact import ContinuousForceRates
+        self.force_rates = ContinuousForceRates(self.num_envs, self.device, env.physics_dt,
+            threshold=self.gentle.get('rate_threshold', 500.),
+            scale=self.gentle.get('rate_scale', 5000.))
+        self.continuous_rise_step = torch.zeros(self.num_envs, device=self.device)
+        self.continuous_fall_step = torch.zeros_like(self.continuous_rise_step)
+        # Read the collision primitive used by g1_col_full, fail if it changes.
+        from pathlib import Path
+        from pxr import Usd, UsdGeom
+        path = Path(__file__).resolve().parents[3] / 'assets/G1/g1_flat_fullcol.usd'
+        stage = Usd.Stage.Open(str(path))
+        hand = stage.GetPrimAtPath('/g1_29dof_rev_1_0/left_hand_mimic')
+        cube = UsdGeom.Cube(hand.GetChild('Cube'))
+        assert cube and cube.GetSizeAttr().Get() > 0
+        for prim in (hand.GetChild('Cube'), hand.GetChild('Sphere')):
+            assert tuple(prim.GetAttribute('xformOp:translate').Get()) == (0., 0., 0.)
+            assert tuple(prim.GetAttribute('xformOp:scale').Get()) == (1., 1., 1.)
+            assert prim.GetAttribute('xformOp:orient').Get().GetReal() == 1.
+        self.hand_half_extent = float(cube.GetSizeAttr().Get()) / 2
+        assert UsdGeom.Sphere(hand.GetChild('Sphere')).GetRadiusAttr().Get() <= self.hand_half_extent
+        self.wall_normal = torch.zeros(self.num_envs, 3, device=self.device)
+        self.wall_normal[:, 0] = 1.
+
+    def reset(self, env_ids):
+        super().reset(env_ids)
+        if hasattr(self, 'force_rates'):
+            self.force_rates.reset(env_ids)
+            self.continuous_rise_step[env_ids] = 0
+            self.continuous_fall_step[env_ids] = 0
+
+    def step(self, substep):
+        super().step(substep)
+        if substep == 0:
+            self.continuous_rise_step.zero_()
+            self.continuous_fall_step.zero_()
+
+    def post_step(self, substep):
+        super().post_step(substep)
+        force = (-self.wall_sensor.data.force_matrix_w.reshape(self.num_envs, -1, 3).sum(1)[:, 0]).clamp_min(0)
+        required, _ = self.task_contact_state()
+        rise, fall = self.force_rates.advance(force, self.wall_present, required)
+        self.continuous_rise_step += rise / self.env.decimation
+        self.continuous_fall_step += fall / self.env.decimation
+
+    def hand_wall_distance(self):
+        from active_adaptation.utils.math import quat_apply_inverse
+        normal_b = quat_apply_inverse(self.asset.data.body_quat_w[:, self.hand_asset], self.wall_normal)
+        support = self.hand_half_extent * normal_b.abs().sum(-1)
+        return super().hand_wall_distance() - support
+
+    @reward
+    def gentle_continuous_rise(self):
+        return (-self.gentle_factor * self.continuous_rise_step).unsqueeze(-1)
+
+    @reward
+    def gentle_continuous_fall(self):
+        return (-self.gentle_factor * self.continuous_fall_step).unsqueeze(-1)
+
+    @reward
+    def gentle_contact_hold(self):
+        required, _ = self.task_contact_state()
+        return (required & self.contact_all_step).float().unsqueeze(-1)

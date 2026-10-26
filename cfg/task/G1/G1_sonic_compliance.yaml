@@ -1,0 +1,18 @@
+# @package task
+defaults:
+  - /task/G1/G1_passive_whole_body
+  - _self_
+name: G1SonicCompliance
+robot:
+  name: g1_sonic
+num_envs: 2048
+action:
+  _target_: active_adaptation.envs.mdp.sonic_residual.SonicResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+command:
+  _target_: active_adaptation.envs.mdp.commands.sonic_compliance.SonicComplianceCommand
+observation:
+  policy:
+    sonic_joint_velocity: {}
+    sonic_reference: {}

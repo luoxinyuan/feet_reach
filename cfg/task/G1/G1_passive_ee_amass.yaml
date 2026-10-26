@@ -1,0 +1,11 @@
+# @package task
+defaults:
+  - /task/G1/G1_passive_compliance
+  - _self_
+
+name: G1PassiveEEAmass
+command:
+  force_limit: 30.0
+  dataset:
+    mem_paths:
+      - passive_ee_amass/train

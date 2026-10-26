@@ -41,6 +41,8 @@ actuator settings; it does not rewrite the bundled source XML or meshes.
 - `jacobian/`: the Jacobian compliance residual student and the exact frozen CEER
   low-level controller used by its training checkpoint, with its own normalization
   and kinematics/motor metadata.
+- `segmented-static-hold/`: the static-hold augmented segmented policy evaluated
+  on 2026-10-25 (W&B run `3dlvh2d9`), kept separately from `segmented/`.
 - `validation_residual.json`: export, adapter, headless and browser test results.
 
 Run `python scripts/mujoco_whole_body_web.py --policy sonic`, `--policy ceer`, or
@@ -70,3 +72,11 @@ its frozen CEER controller, normalization and application-point metadata. This i
 separate from the AMP experiment. Launch with `--policy segmented` in either
 interactive entry point; see the [instructions and measured limitations](../../scripts/references/README_mujoco_residual.md#分段施力版segmented18-个候选点).
 No reference motion, force cache or training dependencies are needed at runtime.
+
+The static-hold augmented checkpoint is available with
+`python scripts/mujoco_whole_body_student.py --policy segmented-static-hold`, or
+in the browser with
+`python scripts/mujoco_whole_body_web.py --policy segmented-static-hold --port 8780`.
+Its paired evaluation found fewer large passive-hand lifts overall; see
+`artifacts/ceer_segmented_singlehand_stop_eval_20261025/README.md` for metrics
+and the side-specific caveat.

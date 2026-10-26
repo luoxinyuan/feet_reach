@@ -1,0 +1,16 @@
+# @package task
+defaults:
+  - /task/G1/G1_gentle_A
+  - _self_
+name: G1GentleC
+command:
+  _target_: active_adaptation.envs.mdp.commands.gentle_residual.ContinuousGentleResidualCommand
+  gentle:
+    rate_threshold: 500.0
+    rate_scale: 5000.0
+reward:
+  tracking:
+    gentle_success: {enabled: false}
+    gentle_impulse: {enabled: false}
+    gentle_contact_hold: {weight: 0.1}
+    gentle_continuous_rise: {weight: 10.0}

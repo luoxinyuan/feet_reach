@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$project_dir"
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-4,5,6,7}"
+export PYTHONPATH="/home/xl521/IsaacLab/source/isaaclab:$project_dir${PYTHONPATH:+:$PYTHONPATH}"
+export MEMPATH="$project_dir/dataset"
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
+export PYTHONUNBUFFERED=1
+python_bin="${PYTHON:-/home/xl521/software/miniconda3/envs/gentle/bin/python}"
+run_stamp="$(date +%Y%m%d_%H%M%S)"
+experiment_name="${EXPERIMENT_NAME:-passive-ee-dense}"
+output_dir="$project_dir/outputs/$experiment_name/$run_stamp"
+mkdir -p "$output_dir"
+printf '%s\n' "$output_dir" > "$project_dir/outputs/$experiment_name/latest_pipeline.txt"
+checkpoint_args=()
+if [[ -n "${RESUME_CHECKPOINT:-}" ]]; then checkpoint_args=("checkpoint_path=$RESUME_CHECKPOINT"); fi
+for phase in train adapt finetune; do
+  case "$phase" in
+    train) frames="${TEACHER_FRAMES:-1200000000}";;
+    adapt) frames="${ADAPT_FRAMES:-100000000}";;
+    finetune) frames="${STUDENT_FRAMES:-400000000}";;
+  esac
+  guidance=true
+  if [[ "$phase" == train ]]; then guidance="${TEACHER_GUIDANCE:-false}"; fi
+  phase_frames="$frames"
+  done_frames=0
+  if [[ "$phase" == train ]]; then done_frames="${TEACHER_DONE_FRAMES:-0}"; fi
+  frames=$((phase_frames - done_frames))
+  if ((frames <= 0)); then echo "Invalid remaining frame budget" >&2; exit 1; fi
+  "$python_bin" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node=4 \
+    scripts/train.py "task=${TASK:-G1/G1_passive_ee_dense}" algo=passive_compliance \
+    "algo.phase=$phase" "task.command.guidance_enabled=$guidance" "task.num_envs=${NUM_ENVS:-12288}" "total_frames=$frames" \
+    "+resume_frames=$done_frames" "+phase_frames=$phase_frames" "save_interval=${SAVE_INTERVAL:-50}" \
+    "wandb.project=${WANDB_PROJECT:-$experiment_name}" "wandb.mode=${WANDB_MODE:-online}" \
+    "wandb.run_name=$experiment_name-$phase-$run_stamp" "wandb.id=$experiment_name-$phase-$run_stamp" \
+    "hydra.run.dir=$output_dir/$phase" "${checkpoint_args[@]}" \
+    2>&1 | tee "$output_dir/$phase.log"
+  mapfile -t checkpoints < <(find "$output_dir/$phase" -type f -name checkpoint_final.pt)
+  [[ ${#checkpoints[@]} -eq 1 ]] || { echo "Missing unique checkpoint: $phase" >&2; exit 1; }
+  checkpoint_args=("checkpoint_path=${checkpoints[0]}")
+  if [[ "$phase" == train ]]; then
+    for scenario in guided hold; do
+      CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES%%,*}" "$python_bin" scripts/eval_passive_policies.py \
+        --task compliance --run-dir "$output_dir" --controller teacher --scenario "$scenario" \
+        --output "$output_dir/teacher_validation/$scenario" \
+        > "$output_dir/teacher_validation_$scenario.log" 2>&1
+    done
+    "$python_bin" scripts/check_passive_teacher_quality.py "$output_dir/teacher_validation" \
+      2>&1 | tee "$output_dir/teacher_validation.log"
+  fi
+done

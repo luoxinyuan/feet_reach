@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import List
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -339,6 +340,13 @@ class RootStudentPPOPolicy(TensorDictModuleBase):
     def _do_lr_schedule(self, kl: float):
         if self.progress < 0.1:
             return
+        # DDP averages gradients, not optimizer learning rates. Rank-local KL
+        # decisions otherwise split parameters after the next optimizer step.
+        if self.world_size > 1:
+            device = self.opt_teacher.param_groups[0]["params"][0].device
+            global_kl = torch.tensor(kl, device=device)
+            dist.all_reduce(global_kl, op=dist.ReduceOp.SUM)
+            kl = (global_kl / dist.get_world_size()).item()
         new_lr = self.current_lr
         if kl > self.cfg.desired_kl * 2.0:
             new_lr = max(1e-5, new_lr / 1.1)

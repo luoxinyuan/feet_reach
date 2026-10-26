@@ -95,3 +95,55 @@ first-step impact, repeated contact, short chatter, resets and no-wall behavior.
 `scripts/references/smoke_proactive_residual.py --task G1_gentle_A` (or B) checks
 physics/PPO, frozen CEER weights, task gates, speed penalty, one-shot success and
 teacher-to-adapt loading. These are correctness checks, not trained-policy evals.
+
+## C/D: continuous contact-rate experiments (2026-10-19)
+
+C/D retain frozen CEER, the 3D left-hand residual, PointNet, nominal EE
+tracking (2.0), contact requirement, approach and residual smooth rewards.
+They replace the first-event impulse and one-shot precision success bonus:
+
+- **C**: every physics sample pays `10 * max(dF/dt - 500, 0) / 5000`.
+- **D**: the same plus `2.5 * max(-dF/dt - 500, 0) / 5000` after contact
+  has occurred while the nominal task still requires contact. Brief separation
+  does not clear this state; task withdrawal or reset does. Intentional withdrawal
+  is therefore exempt from the unloading term.
+- Both rates use wall-filtered normal force at 200 Hz, without low cost caps or
+  event windows. Physics costs are averaged over the control step; the existing
+  reward-dt multiplication integrates them exactly once. A 0→100 N jump over
+  5 ms costs 0.195 at full curriculum strength. Constant force costs zero.
+- Continuous contact reward is 0.1 per second when contact is required and every
+  physics sample in the control step exceeds 1 N; no 3 cm accuracy gate.
+- Approach distance subtracts the orientation-dependent support of the actual
+  hand collision cube (half extent 0.04 m). The centered radius-0.01 m sphere is
+  enclosed. Geometry is read and validated from the same `g1_flat_fullcol.usd`
+  used by the robot. This changes distance gating, not the velocity definition.
+- Original A/B behavior remains available. C/D have no absolute-force penalty,
+  no impulse penalty, and no peak penalty. The original 5–20% teacher curriculum
+  ramps the approach/rate terms; adaptation runs at full strength.
+
+Offline replay of the 150 paired traces, with full-strength C weights, gives
+median costs CEER 0.822, A teacher 1.513, A student 1.979, B teacher 1.570,
+B student 1.526. D adds median unloading costs 0.092/0.317/0.359/0.329/0.326.
+These are cost calibration, not evaluations of newly trained policies.
+
+Launch in separate shells/tmux sessions:
+
+```bash
+GENTLE_VARIANT=C CUDA_VISIBLE_DEVICES=0,1,2,3 bash scripts/train_gentle_contact_pipeline.sh
+GENTLE_VARIANT=D CUDA_VISIBLE_DEVICES=4,5,6,7 bash scripts/train_gentle_contact_pipeline.sh
+```
+
+Defaults remain 4096 environments/GPU (16384/group), 4B aggregate teacher
+frames, then 1B aggregate adaptation frames. Both start from scratch with the
+same default seed; CEER is fixed, not resumed from A/B high-level checkpoints.
+W&B project: `wall-foot-reach`; run names `gentle-contact-C-v1-train/adapt`
+and `gentle-contact-D-v1-train/adapt`. Output roots: `outputs/gentle-contact/C`
+and `outputs/gentle-contact/D`. Each pipeline snapshots inherited variant
+configs and reward sources; each phase also saves its resolved configuration.
+
+Validation: `test_gentle_continuous.py` checks late impacts, constant force,
+threshold, uncapped costs, unloading/withdrawal, absent wall and resets.
+`smoke_proactive_residual.py --task G1_gentle_C` (or D) checks exact active
+reward sets, collision-aware approach, precision-independent contact reward,
+frozen low-level weights and PointNet PPO gradients. Run its adapt phase with
+`--checkpoint <smoke_train.pt>` to check teacher→adapt loading and an update.

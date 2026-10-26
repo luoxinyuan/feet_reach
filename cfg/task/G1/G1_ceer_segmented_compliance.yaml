@@ -1,0 +1,10 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_spring18_compliance
+  - _self_
+name: G1CEERSegmentedJacobianResidualCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.segmented_jacobian_compliance.SegmentedJacobianComplianceCommand
+  guidance_cache: artifacts/ceer_segmented_jacobian/train18
+  dataset:
+    mem_paths: [../artifacts/ceer_segmented_jacobian/train18/dataset]

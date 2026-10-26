@@ -1,0 +1,5 @@
+# @package algo
+defaults:
+  - sonic_residual
+  - _self_
+name: ceer_residual

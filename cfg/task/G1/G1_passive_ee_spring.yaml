@@ -1,0 +1,10 @@
+# @package task
+defaults:
+  - /task/G1/G1_passive_ee_dense
+  - _self_
+name: G1PassiveEESpring
+command:
+  guidance_mode: next_frame
+  guidance_enabled: true
+  spring_stiffness: 80.0
+  force_limit: 30.0

@@ -1,0 +1,12 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_compliance
+  - _self_
+name: G1CEERJacobianResidualCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.jacobian_compliance.JacobianComplianceCommand
+  joint_delta_gain: 80.0
+  joint_feedback_gain: 20.0
+  force_penalty: 1.0
+  smooth_penalty: 1.0
+  resample_attempts: 2

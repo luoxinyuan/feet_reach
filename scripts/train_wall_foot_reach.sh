@@ -14,4 +14,4 @@ if [[ "$phase" != train ]]; then
 fi
 exec "${PYTHON:-python}" scripts/train.py task=G1/G1_wall_foot_reach "+exp=$phase" \
   algo.symmetry_augmentation=false "wandb.project=${WANDB_PROJECT:-wall-foot-reach}" \
-  "wandb.run_name=${WANDB_RUN_NAME:-v1}" "wandb.mode=${WANDB_MODE:-disabled}" "${checkpoint_args[@]}" "$@"
+  "wandb.run_name=${WANDB_RUN_NAME:-v1}" "wandb.mode=${WANDB_MODE:-online}" "${checkpoint_args[@]}" "$@"

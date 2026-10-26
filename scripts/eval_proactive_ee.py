@@ -97,7 +97,7 @@ def main():
     if state['policy']['last_phase'] not in ('adapt','finetune'):raise ValueError('Student checkpoint required')
     cfg=OmegaConf.create(OmegaConf.to_container(state['cfg'],resolve=True));OmegaConf.set_struct(cfg,False)
     command_target=cfg.task.command._target_
-    is_residual=command_target.endswith('ProactiveResidualCommand')
+    is_residual=command_target.endswith(('ProactiveResidualCommand','GentleResidualCommand'))
     if not (command_target.endswith('ProactiveEECommand') or is_residual):raise ValueError('Wrong task checkpoint')
     if args.zero_residual and not is_residual:p.error('--zero-residual requires a proactive-residual checkpoint')
     actor_obs_key='hl_policy' if is_residual else 'policy'
@@ -143,7 +143,7 @@ def main():
         if dataset_trajectory_fps!=50:raise ValueError(f'Expected a 50 Hz dataset trajectory, got {dataset_trajectory_fps} Hz')
         if np.linalg.norm(dataset_trajectory[0]-np.asarray(manifest['anchor_world']))>.02:
             raise ValueError('Held-out trajectory start does not match the evaluation anchor')
-    config=dict(checkpoint=str(args.checkpoint.resolve()),checkpoint_sha256=hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),phase=state['policy']['last_phase'],policy_type='proactive_residual' if is_residual else 'proactive_ee',seed=args.seed,
+    config=dict(checkpoint=str(args.checkpoint.resolve()),checkpoint_sha256=hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),phase=state['policy']['last_phase'],policy_type='gentle_residual' if command_target.endswith('GentleResidualCommand') else ('proactive_residual' if is_residual else 'proactive_ee'),seed=args.seed,
         accuracy_targets_root=ordered,anchor_root=anchor.tolist(),paired_target_root=goal.tolist(),paired_nominal_target_world=goal_world.tolist(),wall_x=args.wall_x,
         continue_on_instability=args.continue_on_instability,repeats=args.repeats,physics_dt=.005,control_dt=.02,accuracy='seeded random validation endpoints, ordered nearest-neighbor; continuous direct targets, 2s reach + 1s hold; 1s anchor settling',
         paired='nearest held-out target at least 1cm behind wall; wall fixed from reset; optional masked-geometry settling then direct target; 3s reach + 2s hold; default zero settling preserves identical reference-state/history at target onset',paired_settle_s=args.paired_settle,
@@ -351,6 +351,9 @@ def main():
                     if args.contact_impulse_window_s:
                         result.update(contact_impulse_summary(physics_force_rows,args.contact_impulse_window_s))
                         result['contact_impulse_sample_rate_hz']=round(1./base.physics_dt,6)
+                        force_window=[r['normal_force_N'] for r in physics_force_rows
+                                      if r['time_s']>=0 and r['phase'] in ('reach','hold')]
+                        result['peak_force_physics_N']=max(force_window) if force_window else None
                     trials.append(result)
                     save_rows(d/'samples.csv');save_physics_force_rows(d/'physics_force.csv');(d/'summary.json').write_text(json.dumps(result,indent=2))
                     if writer:writer.close();writer=None

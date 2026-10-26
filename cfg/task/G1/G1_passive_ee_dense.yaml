@@ -1,0 +1,36 @@
+# @package task
+defaults:
+  - /task/G1/G1_passive_ee_continuous
+  - _self_
+name: G1PassiveEEDense
+command:
+  _target_: active_adaptation.envs.mdp.commands.passive_ee_dense.PassiveEEDenseCommand
+  reward_sigma:
+    root_pos: [0.15, 0.05]
+    root_rot: [0.5, 0.2]
+    joint_pos: [0.4, 0.1]
+    joint_vel: [2.0, 0.5]
+    keypoint: [0.2, 0.05]
+    ee: [0.15, 0.05]
+    ee_world: [0.15, 0.05]
+reward:
+  tracking:
+    root_pos_tracking:
+      weight: 1.5
+    root_rot_tracking:
+      weight: 1.0
+    joint_pos_tracking:
+      weight: 3.0
+    joint_vel_tracking:
+      weight: 0.5
+    keypoint_tracking:
+      weight: 2.0
+    ee_tracking:
+      weight: 2.0
+    ee_world_tracking:
+      weight: 2.0
+  loco:
+    survival:
+      weight: 1.0
+    action_rate_l2:
+      weight: 0.05

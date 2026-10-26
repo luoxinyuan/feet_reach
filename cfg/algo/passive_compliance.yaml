@@ -1,0 +1,11 @@
+# @package algo
+defaults:
+  - root_student_ppo
+  - _self_
+name: passive_compliance
+phase: train
+in_keys: [policy]
+priv_in_keys: [priv, joint_target]
+critic_in_keys: [policy, priv, joint_target, priv_critic]
+latent_dim: 128
+vecnorm: train

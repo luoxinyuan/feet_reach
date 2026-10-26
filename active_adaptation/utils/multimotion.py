@@ -19,7 +19,8 @@ class ProgressiveMultiMotionDataset:
                  sample_once: bool = True,
                  position_z_offset: float = 0.035,
                  clamp_joint_targets: bool = True,
-                 buffer_float_dtype: str = "float16"):
+                 buffer_float_dtype: str = "float16",
+                 resample_on_reset: bool = False):
         self.device = device
         self.ds_device = ds_device
         self.env_size = env_size
@@ -30,6 +31,9 @@ class ProgressiveMultiMotionDataset:
         self.fix_ds = fix_ds
         self.fix_motion_id = fix_motion_id
         self.sample_once = sample_once
+        self.resample_on_reset = resample_on_reset
+        if resample_on_reset and not sample_once:
+            raise ValueError('resample_on_reset uses a single buffer; set sample_once=true')
         self.position_z_offset = float(position_z_offset)
         self.clamp_joint_targets = bool(clamp_joint_targets)
         if buffer_float_dtype not in ("float16", "float32"):
@@ -77,6 +81,21 @@ class ProgressiveMultiMotionDataset:
 
     def reset(self, env_ids: torch.Tensor) -> torch.Tensor:
         env_ids = env_ids.to(self.device)
+
+        if self.resample_on_reset:
+            # Chunked copying bounds temporary CPU/GPU memory for full datasets.
+            for ids in env_ids.split(256):
+                choices=torch.multinomial(self.probs,len(ids),replacement=True)
+                for pi,ds in enumerate(self.datasets):
+                    selected=ids[choices==pi]
+                    if not len(selected):continue
+                    mids=torch.randint(ds.num_motions,(len(selected),),device=self.ds_device)
+                    idx=ds.starts[mids,None].long()+torch.arange(self.max_step_size,device=self.ds_device)
+                    idx=torch.minimum(idx,(ds.ends[mids]-1)[:,None])
+                    self._buf_A[selected]=self._to_float(ds.data[idx].to(self.device),dtype=self.buffer_float_dtype)
+                    self._len_A[selected]=ds.lengths[mids].clamp_max(self.max_step_size).to(self.device)
+                    for k in self.dataset_extra_keys:
+                        self._info_A[k['name']][selected]=ds.info[k['name']][mids].to(self.device)
 
         if not self.sample_once:
             if (not self._refreshing) and (self._reset_counters >= self.refresh_threshold):

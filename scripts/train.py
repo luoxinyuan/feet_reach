@@ -61,10 +61,21 @@ def main(cfg: DictConfig):
 
     env, policy, vecnorm, primer = make_env_policy(cfg)
 
+    if cfg.get("resume_frames", 0) and hasattr(policy, "current_lr"):
+        for name in ("opt_teacher", "opt_student", "opt_estimator", "opt_critic"):
+            optimizer = getattr(policy, name, None)
+            if optimizer is not None:
+                for group in optimizer.param_groups:
+                    group["lr"] = policy.current_lr
+
     frames_per_batch = env.num_envs * cfg.algo.train_every
     total_frames = cfg.get("total_frames", -1) // aa.get_world_size()
     total_frames = total_frames // frames_per_batch * frames_per_batch
     total_iters = total_frames // frames_per_batch
+    if cfg.get("benchmark_iters", 0):
+        total_iters = int(cfg.benchmark_iters)
+    resume_frames = int(cfg.get("resume_frames", 0))
+    phase_frames = int(cfg.get("phase_frames", cfg.total_frames))
     save_interval = cfg.get("save_interval", -1)
     start_iter = cfg.get("start_iter", 0)
     start_frame = start_iter * frames_per_batch
@@ -128,6 +139,8 @@ def main(cfg: DictConfig):
     
     rollout_policy = policy.get_rollout_policy("train")
     env_frames = 0
+    if resume_frames and hasattr(env, "step_schedule"):
+        env.step_schedule(resume_frames / phase_frames, 0)
     carry = env.reset()
 
     assert env.training
@@ -171,10 +184,14 @@ def main(cfg: DictConfig):
         rollout_time = time.perf_counter() - start
         training_start = time.perf_counter()
 
+        schedule_progress = (
+            (resume_frames + i * frames_per_batch * aa.get_world_size()) / phase_frames
+            if "phase_frames" in cfg else i / total_iters
+        )
         if hasattr(policy, "step_schedule"):
-            policy.step_schedule(i / total_iters, i)
+            policy.step_schedule(schedule_progress, i)
         if hasattr(env, "step_schedule"):
-            env.step_schedule(i / total_iters, i)
+            env.step_schedule(schedule_progress, i)
         
         train_carry = policy.train_op(data, vecnorm)
 
@@ -192,9 +209,11 @@ def main(cfg: DictConfig):
             info.update(env.extra)
             info.update(env.stats_ema)
 
-            info["env_frames"] = env_frames * aa.get_world_size()
+            info["env_frames"] = resume_frames + env_frames * aa.get_world_size()
             info["rollout_fps"] = data.numel() / rollout_time * aa.get_world_size()
             info["training_time"] = time.perf_counter() - training_start
+            info["iteration_fps"] = data.numel() * aa.get_world_size() / (time.perf_counter() - start)
+            info["cuda_peak_GB"] = torch.cuda.max_memory_allocated() / 1e9
         
             if save_interval and save_interval > 0 and should_save(i):
                 save(policy, f"checkpoint_{i}")
@@ -202,6 +221,14 @@ def main(cfg: DictConfig):
             run.log(info, step=i)
             print(OmegaConf.to_yaml({k: v for k, v in info.items() if isinstance(v, (float, int))}))
     
+    if cfg.get("benchmark_iters", 0):
+        if aa.is_main_process():
+            wandb.finish()
+        if aa.is_distributed():
+            dist.barrier()
+            dist.destroy_process_group()
+        return
+
     if aa.is_main_process():
         save(policy, "checkpoint_final")
 

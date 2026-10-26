@@ -1,0 +1,26 @@
+# @package task
+defaults:
+  - /task/G1/G1_passive_locomotion
+  - _self_
+name: G1PassiveWholeBody
+max_episode_length: 1000
+command:
+  _target_: active_adaptation.envs.mdp.commands.passive_whole_body.PassiveWholeBodyCommand
+  guidance_enabled: true
+  dataset:
+    mem_paths: [passive_whole_body_full/train]
+    path_weights: [1.0]
+    sample_once: true
+    resample_on_reset: true
+    position_z_offset: 0.03540915
+    clamp_joint_targets: false
+    buffer_float_dtype: float16
+  dataset_extra_keys: []
+observation:
+  policy:
+    body_guidance_wrench_b: {enabled: false}
+    upper_body_forces_b: {}
+reward:
+  tracking:
+    ee_tracking:
+      weight: 2.0

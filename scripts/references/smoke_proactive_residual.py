@@ -36,6 +36,10 @@ try:
   enabled={k for k,v in funcs.items() if v.enabled}
   expected={'gentle_tracking','gentle_requirement','gentle_approach','gentle_success','gentle_residual_smooth','gentle_impulse'}
   if args.task.endswith('_B'):expected|={'gentle_growth','gentle_peak'}
+  if args.task.endswith(('_C','_D')):
+   expected -= {'gentle_success','gentle_impulse'}
+   expected |= {'gentle_contact_hold','gentle_continuous_rise'}
+   if args.task.endswith('_D'):expected.add('gentle_continuous_fall')
   assert enabled==expected,enabled
  else:
   assert 'left_ee_tracking' in funcs and 'contact_requirement' in funcs
@@ -60,14 +64,25 @@ try:
   cmd.asset.data.body_lin_vel_w[:,cmd.hand_asset,0]=.5
   cmd.wall_contact_this_step.fill_(False)
   cmd.step_schedule(.2)
+  saved_wall=cmd.wall_x.clone()
+  cmd.wall_x.add_(.05-cmd.hand_wall_distance())
   torch.testing.assert_close(cmd.gentle_approach(),torch.full((8,1),-.25,device=cmd.device),atol=1e-5,rtol=1e-5)
+  cmd.wall_x.copy_(saved_wall)
   cmd.step_schedule(0.)
   if cmd.curriculum_enabled:assert not cmd.gentle_approach().any()
   cmd.asset.data.body_lin_vel_w[:,cmd.hand_asset]=velocity
   cmd.wall_contact_this_step.fill_(True);cmd.contact_all_step.fill_(True)
-  total_success=0.
-  for _ in range(25):total_success+=cmd.gentle_success().sum().item()*env.step_dt
-  assert abs(total_success-8*.2)<1e-5,total_success
+  if args.task.endswith(('_C','_D')):
+   torch.testing.assert_close(cmd.gentle_contact_hold(),torch.ones(8,1,device=cmd.device))
+   # Hold reward remains active even with large tangential target error.
+   goal[:,1]+=.1
+   cmd.set_target_ee_pos_b(quat_apply_inverse(cmd.asset.data.root_quat_w,goal-cmd.asset.data.root_pos_w))
+   torch.testing.assert_close(cmd.gentle_contact_hold(),torch.ones(8,1,device=cmd.device))
+   assert .04 <= cmd.hand_half_extent <= .041
+  else:
+   total_success=0.
+   for _ in range(25):total_success+=cmd.gentle_success().sum().item()*env.step_dt
+   assert abs(total_success-8*.2)<1e-5,total_success
   # Early contact in the 2 cm target band is allowed, more distant contact is not.
   cmd.wall_x.copy_(goal[:,0]-env.scene.env_origins[:,0]+.01)
   assert not cmd.gentle_requirement().any()

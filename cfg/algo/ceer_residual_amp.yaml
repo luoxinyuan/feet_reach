@@ -1,0 +1,14 @@
+# @package algo
+defaults:
+  - ceer_residual
+  - _self_
+_target_: active_adaptation.learning.hierarchical.compliance_amp_ppo.ComplianceAMPPPO
+name: ceer_residual_amp
+amp_expert: artifacts/ceer_segmented_amp/expert_pairs.pt
+amp_weight: 2.0
+amp_warmup_updates: 100
+amp_disc_updates: 4
+amp_batch_size: 4096
+amp_replay_size: 65536
+amp_lr: 0.0001
+amp_gradient_penalty: 10.0
