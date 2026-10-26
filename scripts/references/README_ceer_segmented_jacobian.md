@@ -55,3 +55,11 @@ CUDA_VISIBLE_DEVICES=5,6,7 NUM_ENVS=16384 WANDB_MODE=online bash scripts/train_c
 使用 `train18_single_hand_ee_static_screened_20261025` 训练同一 18 点 segmented Jacobian residual，4B frame，GPU 2–7 共六卡，每卡 16,384 env。W&B run：
 [screened-20261026-6gpu](https://wandb.ai/luoxinyuan-duke-university/ceer-segmented-jacobian-residual-compliance/runs/kthwynfv)。
 本次运行目录为 `outputs/ceer-segmented-jacobian-residual/screened_20261026`，tmux 会话 `ceer-segmented-screened`；进度写入该目录的 `training_status.json` 和 `train.log`。筛选仅从原采样索引移除一个超速片段，具体阈值与统计见筛选缓存的 `SCREENING_REPORT.md`。
+
+## 多力方案缓存（2026-10-26）
+
+新训练缓存为 `artifacts/ceer_segmented_jacobian/train18_single_hand_ee_static_screened_multi10_20261026`，保留原方案并扩增为每条动态轨迹 10 套力方案：7,692 条原始动作和 4,209 条单手 EE 轨迹均为 10 套；3,000 条静止 hold 仍为单一零力方案。原始动作的新增方案采用平滑时间幅值变化，并逐条通过训练片段的双臂拟合门槛和力约束；单手轨迹使用不同的平滑脉冲。少数拟合敏感轨迹只能使用较小幅度的方案变化。总计 122,010 个轨迹方案通过完整逐帧校验。
+
+训练配置已切换到该缓存。每个环境在 episode reset 时，从该轨迹的 10 套有效方案中均匀随机选一套，并在 episode 内固定；静止 hold 选唯一的零力方案。`guidance/variant_index_mean` 可用于检查采样。校验最大单点力 20.00 N、总力 39.12 N、变化率 150.00 N/s，均不超过现有 30 N / 60 N / 150 N/s 上限；所有点切换前一帧力为零。审计结果见缓存目录 `validation.json`，方案来源和逐轨迹筛选结果见 `variant_manifest.json`。
+
+multi10 训练已于 2026-10-26 启动：GPU 5–7，每卡 16,384 环境，共 49,152 环境，训练预算 4B frames。运行目录为 `outputs/ceer-segmented-jacobian-residual/multi10_20261026_163438`，tmux 会话 `ceer-segmented-multi10`；W&B：[multi10 run](https://wandb.ai/luoxinyuan-duke-university/ceer-segmented-jacobian-residual-compliance/runs/4vqahv90)。启动后首轮更新正常，状态见运行目录 `training_status.json`。

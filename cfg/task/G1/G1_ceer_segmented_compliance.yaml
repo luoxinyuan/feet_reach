@@ -5,6 +5,6 @@ defaults:
 name: G1CEERSegmentedJacobianResidualCompliance
 command:
   _target_: active_adaptation.envs.mdp.commands.segmented_jacobian_compliance.SegmentedJacobianComplianceCommand
-  guidance_cache: artifacts/ceer_segmented_jacobian/train18
+  guidance_cache: artifacts/ceer_segmented_jacobian/train18_single_hand_ee_static_screened_multi10_20261026
   dataset:
-    mem_paths: [../artifacts/ceer_segmented_jacobian/train18/dataset]
+    mem_paths: [../artifacts/ceer_segmented_jacobian/train18_single_hand_ee_static_screened_multi10_20261026/dataset]
