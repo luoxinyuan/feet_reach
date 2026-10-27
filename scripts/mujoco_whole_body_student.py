@@ -17,6 +17,9 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BUNDLE = ROOT / 'deploy/mujoco_whole_body/policy'
 DEFAULT_MODEL = ROOT / 'deploy/mujoco_whole_body/g1/g1_29dof_rev_1_0.xml'
+POLICY_BUNDLES = {
+    'segmented-multi10': ROOT / 'deploy/mujoco_whole_body/20261026-segmented-multi10',
+}
 POINT_NAMES = ['torso_link'] + [f'{side}_{part}' for side in ['left','right']
     for part in ['shoulder_roll_link','elbow_link','wrist_roll_link','hand_mimic']]
 
@@ -296,18 +299,22 @@ class Interactive:
 
 
 def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
-    bundle = bundle or (DEFAULT_BUNDLE if policy == 'direct' else ROOT / 'deploy/mujoco_whole_body' / policy)
+    bundle = bundle or (DEFAULT_BUNDLE if policy == 'direct' else
+                        POLICY_BUNDLES.get(policy, ROOT / 'deploy/mujoco_whole_body' / policy))
     backend = json.loads((bundle/'metadata.json').read_text()).get('backend', 'direct')
     if backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
-        return ResidualSimulation(bundle, model_path)
-    return Simulation(bundle, model_path)
+        sim = ResidualSimulation(bundle, model_path)
+    else:
+        sim = Simulation(bundle, model_path)
+    sim.meta['policy_alias'] = policy
+    return sim
 
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','segmented','segmented-static-hold'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','segmented','segmented-static-hold','segmented-multi10'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)

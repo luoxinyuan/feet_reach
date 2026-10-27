@@ -213,10 +213,16 @@ def main():
     fall=(asset.data.root_pos_w[:,2]-env.scene.env_origins[:,2]<.45)|(asset.data.projected_gravity_b[:,2]>-.5)
     terminated=carry['terminated'].flatten();truncated=carry['truncated'].flatten()
     failed|=alive&terminated;fallen|=alive&fall;completed|=alive&truncated&~terminated&~fall
-    trace.append(dict(root=(asset.data.root_pos_w[:8]-env.scene.env_origins[:8]).cpu().numpy(),
+    trace_row=dict(root=(asset.data.root_pos_w[:8]-env.scene.env_origins[:8]).cpu().numpy(),
       target=(cmd.reward_root_pos_w[:8]-env.scene.env_origins[:8]).cpu().numpy(),
       bodies=(asset.data.body_pos_w[:8]-env.scene.env_origins[:8,None]).cpu().numpy(),
-      alive=alive[:8].cpu().numpy(),joint_error=qerr[:8].cpu().numpy()))
+      alive=alive[:8].cpu().numpy(),joint_error=qerr[:8].cpu().numpy())
+    if args.task=='whole-body' and hasattr(cmd,'point_force_buffer'):
+     trace_row['point_force_N']=cmd.point_force_buffer[:8].norm(dim=-1).cpu().numpy()
+     trace_row['motion_id']=cmd._motion.motion_id[:8,0].cpu().numpy()
+     if episode_side is not None:trace_row['active_side']=episode_side[:8].cpu().numpy()
+     if hasattr(cmd,'variant_ids'):trace_row['variant_id']=cmd.variant_ids[:8].cpu().numpy()
+    trace.append(trace_row)
     if args.video and step%2==0:frames.append(env.render('rgb_array').copy())
     alive&=~(terminated|truncated|fall)
     if not alive.any():break
@@ -266,7 +272,9 @@ def main():
    report['post_force_off_metrics_by_active_side']=dict(window_seconds=args.postforce_window_steps*env.step_dt,
        metrics=postforce_by_side)
   (args.output/'summary.json').write_text(json.dumps(report,indent=2))
-  np.savez_compressed(args.output/'traces.npz',**{k:np.stack([t[k] for t in trace]) for k in trace[0]},body_names=np.array(names),step_dt=env.step_dt)
+  trace_arrays={k:np.stack([t[k] for t in trace]) for k in trace[0]}
+  if hasattr(cmd,'point_names'):trace_arrays['force_point_names']=np.array(cmd.point_names)
+  np.savez_compressed(args.output/'traces.npz',**trace_arrays,body_names=np.array(names),step_dt=env.step_dt)
   if frames:
    import imageio.v2 as imageio
    imageio.mimwrite(args.output/'rollout.mp4',frames,fps=round(1/env.step_dt/2))

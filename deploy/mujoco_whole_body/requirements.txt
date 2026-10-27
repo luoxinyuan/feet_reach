@@ -5,6 +5,7 @@ torch>=2.7,<3
 mujoco==3.9.0
 glfw>=2.8,<3
 Pillow>=10,<13
+imageio[ffmpeg]>=2.34,<3
 
 # CPU inference of the official frozen SONIC encoder/decoder.
 onnxruntime>=1.20,<2

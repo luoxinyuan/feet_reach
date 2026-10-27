@@ -102,6 +102,30 @@ MuJoCo 无外力运行 20 秒未跌倒，最终水平位移约 5.3 cm；
 因此可用于交互对比，但此版不保证任意拖拽稳定，也不保证松手保持。
 验证记录见 `deploy/mujoco_whole_body/validation_segmented.json`。
 
+### Multi10 单手多方向力序列
+
+新增独立导出包 `deploy/mujoco_whole_body/20261026-segmented-multi10/`，来自
+multi10 训练 run `4vqahv90` 的最终 checkpoint。它和较早的 `segmented`
+版本并存，不覆盖旧 policy。桌面和浏览器交互 demo 均可选择：
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy segmented-multi10
+python scripts/mujoco_whole_body_web.py --policy segmented-multi10 --port 8781
+```
+
+复现单机器人正面施力演示视频：
+
+```bash
+python scripts/mujoco_whole_body_force_demo.py \
+  --policy segmented-multi10 \
+  --output artifacts/20261026-mujoco-multi10-force-demo/rollout.mp4
+```
+
+视频固定 reference 姿势，逐段对左手施加 5/10 N 左右向、8 N 上下向和 12 N 前向外力；
+黄色箭头从左手施力点出发。MuJoCo 使用导出的 multi10 student 与冻结 CEER，
+不加载 Isaac、训练数据或 force cache。MuJoCo 与 Isaac 的动力学不同，力序列演示
+用于直观检查，不代表 Isaac 评测指标的复现。
+
 ### 静止轨迹增强版
 
 最近一次评测的 static-hold augmented checkpoint 已单独打包为

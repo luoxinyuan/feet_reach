@@ -80,3 +80,9 @@ in the browser with
 Its paired evaluation found fewer large passive-hand lifts overall; see
 `artifacts/ceer_segmented_singlehand_stop_eval_20261025/README.md` for metrics
 and the side-specific caveat.
+
+`20261026-segmented-multi10/` is a separate export of the multi10 segmented
+CEER residual checkpoint (W&B run `4vqahv90`). Select it with
+`--policy segmented-multi10`; the package directory keeps the date prefix.
+A standalone frontal force-sequence renderer is available at
+`scripts/mujoco_whole_body_force_demo.py`.

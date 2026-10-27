@@ -129,3 +129,8 @@ original policy described above. See [residual deployment details](README_mujoco
 for their distinct observations, motor settings, automatic SONIC download and
 measured drift. `--bundle` overrides the selected bundle and uses its metadata
 to choose the adapter.
+
+The independently exported multi10 segmented checkpoint is available as
+`--policy segmented-multi10` in both viewers. Render its frontal force sequence
+with `scripts/mujoco_whole_body_force_demo.py`; the yellow arrow is anchored at
+the left-hand application point. See [the multi10 instructions](README_mujoco_residual.md#multi10-单手多方向力序列).
