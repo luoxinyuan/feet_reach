@@ -85,7 +85,9 @@ def direct_profile(record, input_root, points, seed):
         qpos = z["qpos"].astype(np.float64)
         side = str(z["active_side"])
     n = len(qpos)
-    point_id = [p["name"] for p in points].index(f"{side}_hand")
+    names = [p["name"] for p in points]
+    point_name = f"{side}_ee" if f"{side}_ee" in names else f"{side}_hand"
+    point_id = names.index(point_name)
     rng = np.random.default_rng(seed + int(record["index"]))
     direction_b = np.eye(3)[rng.integers(0, 3)] * rng.choice([-1., 1.])
     direction_b += rng.normal(0., .22, 3)
@@ -114,7 +116,7 @@ def direct_profile(record, input_root, points, seed):
     norms = np.linalg.norm(forces[:, 0], axis=-1)
     slew = np.linalg.norm(np.diff(forces[:, 0], axis=0), axis=-1) / .02
     report = dict(index=int(record["index"]), side=side, input_file=record["file"],
-        point=f"{side}_hand", point_id=point_id, frames=n,
+        point=point_name, point_id=point_id, frames=n,
         profile="single smooth pulse, fixed root-frame direction", force_peak_N=float(norms.max()),
         force_mean_N=float(norms.mean()), active_force_fraction=float((norms > 1e-4).mean()),
         max_slew_N_s=float(slew.max(initial=0.)), force_fit_ok=True)

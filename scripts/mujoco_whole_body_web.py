@@ -140,6 +140,16 @@ class WebInteraction(Interactive):
             mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_SPHERE, np.array([.025]*3),
                 s.point_positions()[self.selected], np.eye(3).ravel(), np.array([.1, 1, .9, 1], dtype=np.float32))
             self.scene.ngeom += 1
+            if hasattr(s, 'estimated_forces'):
+                rot = s.data.xmat[s.root].reshape(3, 3)
+                estimate = rot @ s.estimated_forces[self.selected] * 30.
+                if np.linalg.norm(estimate) > .05:
+                    start = s.point_positions()[self.selected] + np.array([0., 0., .04])
+                    geom = self.scene.geoms[self.scene.ngeom]
+                    mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_ARROW, np.zeros(3), np.zeros(3),
+                        np.eye(3).ravel(), np.array([.05, .65, 1., 1.], dtype=np.float32))
+                    mujoco.mjv_connector(geom, mujoco.mjtGeom.mjGEOM_ARROW, .01, start, start+.02*estimate)
+                    self.scene.ngeom += 1
         frame = self.renderer.render()
         output = io.BytesIO()
         Image.fromarray(frame).save(output, format='JPEG', quality=quality)
@@ -265,7 +275,7 @@ def main():
     p.add_argument('--host', default='127.0.0.1')
     p.add_argument('--port', type=int, default=8765)
     p.add_argument('--bundle', type=Path, help='Override the selected policy bundle')
-    p.add_argument('--policy', choices=['direct','sonic','ceer','jacobian','segmented','segmented-static-hold','segmented-multi10'], default='direct')
+    p.add_argument('--policy', choices=['direct','sonic','ceer','jacobian','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23'], default='direct')
     p.add_argument('--model', type=Path, default=DEFAULT_MODEL)
     p.add_argument('--width', type=int, default=960)
     p.add_argument('--height', type=int, default=600)
@@ -319,8 +329,12 @@ def main():
                 jpeg = ui.render_jpeg(args.quality)
                 state = {'policy': sim.meta.get('policy_alias',sim.meta.get('backend','direct')), 'initial_height': sim.meta.get('root_height',.74), 'time': float(sim.data.time), 'paused': ui.paused, 'connected': connected,
                     'selected': sim.point_names[ui.selected] if ui.selected is not None else None,
+                    'selected_estimated_force_N': (float(np.linalg.norm(sim.estimated_forces[ui.selected])*30)
+                        if ui.selected is not None and hasattr(sim,'estimated_forces') else None),
                     'force_N': float(np.linalg.norm(sim.forces, axis=1).sum()),
                     'force_limit_N': 30, 'root_height': float(sim.data.qpos[2]),
+                    'force_estimate_N': (float(np.linalg.norm(sim.estimated_forces,axis=1).sum()*30)
+                        if hasattr(sim,'estimated_forces') else None),
                     'fall': sim.first_fall is not None, 'follow': ui.follow, 'dragging': ui.dragging,
                     'realtime_factor': realtime, 'width': args.width, 'height': args.height}
                 transport.publish(jpeg, state)

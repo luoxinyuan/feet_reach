@@ -1,0 +1,15 @@
+# @package algo
+defaults:
+  - root_ppo
+  - _self_
+_target_: active_adaptation.learning.hierarchical.dense_force_ppo.DenseForcePPO
+name: ceer_dense_force
+phase: teacher
+in_keys: [policy, force_input_]
+critic_in_keys: [policy, priv, joint_target, force_gt_]
+init_noise_scale: 0.3
+lr: 3.0e-5
+estimator_lr: 1.0e-4
+estimator_epochs: 2
+distill_epochs: 2
+imitation_weight: 0.05

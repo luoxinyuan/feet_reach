@@ -167,7 +167,7 @@ class ResidualSimulation(Simulation):
         self.age+=1
 
     def _before_torque(self):
-        if self.backend in ('ceer','jacobian','segmented'):
+        if self.backend in ('ceer','jacobian','segmented','dense-estimator'):
             substep=self.steps%self.decimation
             idx=(self.delay-substep+self.decimation-1)//self.decimation
             delayed=self.low_actions[idx]
@@ -175,3 +175,40 @@ class ResidualSimulation(Simulation):
             self.target=self.q0+np.array(self.meta['action_scale'])*self.low_applied
             if self.boot_delay>0:self.target=self.boot_q.copy()
             self.boot_delay=max(0,self.boot_delay-1)
+
+
+class DenseResidualSimulation(ResidualSimulation):
+    """23-point policy: infer per-link forces from causal proprioceptive history."""
+    def __init__(self,bundle,model_path,physics_dt=None):
+        self.force_estimator=torch.jit.load(str(bundle/'estimator.pt'),map_location='cpu').eval()
+        super().__init__(bundle,model_path,physics_dt)
+
+    def reset(self):
+        super().reset()
+        self.estimator_history=np.zeros((10,93),dtype=np.float32)
+        self.history_fresh=True
+        self.estimated_forces=np.zeros((len(self.points),3),dtype=np.float32)
+
+    def observation(self):
+        # The dense actor was trained with separate `policy` and `force_input_`
+        # keys. Its policy observation intentionally excludes privileged force_gt.
+        full=super().observation()
+        base=np.concatenate((full[:238],full[238+self.forces.size:])).astype(np.float32)
+        rot=self.data.xmat[self.root].reshape(3,3)
+        velocity=np.zeros(6)
+        mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,velocity,1)
+        current=np.concatenate((velocity[:3]/5.,rot.T@np.array([0.,0.,-1.]),
+            self.data.qpos[self.qadr],self.data.qvel[self.vadr]/10.,
+            np.clip(self.low_action,-10,10)/5.)).astype(np.float32)
+        if self.history_fresh:
+            self.estimator_history[:]=current
+            self.history_fresh=False
+        else:
+            self.estimator_history[1:]=self.estimator_history[:-1].copy()
+            self.estimator_history[0]=current
+        with torch.inference_mode():
+            estimate=self.force_estimator(torch.from_numpy(self.estimator_history.reshape(1,-1)))[0].numpy()
+        if not np.isfinite(estimate).all():
+            raise RuntimeError('Non-finite dense force estimate')
+        self.estimated_forces=estimate.reshape(len(self.points),3).copy()
+        return np.concatenate((base,estimate)).astype(np.float32)

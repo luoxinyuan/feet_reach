@@ -85,6 +85,8 @@ def main():
     p.add_argument("--cache", type=Path, required=True)
     p.add_argument("--source-cache", type=Path, required=True)
     p.add_argument("--workers", type=int, default=24)
+    p.add_argument("--points-config", type=Path,
+                   default=ROOT / "cfg/task/G1/G1_ceer_spring18_compliance.yaml")
     args = p.parse_args()
     cache, source = args.cache.resolve(), args.source_cache.resolve()
     counts = np.load(cache / "motion_variant_counts.npy")
@@ -112,7 +114,7 @@ def main():
     slots = np.load(cache / "variant_slots.npy", mmap_mode="r+")
     forces = np.load(cache / "variant_forces.npy", mmap_mode="r+")
     geom_path = ROOT / "artifacts/ceer_segmented_jacobian/geometry.json"
-    points_path = ROOT / "cfg/task/G1/G1_ceer_spring18_compliance.yaml"
+    points_path = args.points_config.resolve()
     results = []
     with ProcessPoolExecutor(max_workers=args.workers, initializer=_init,
                              initargs=(str(cache), str(source), str(geom_path), str(points_path))) as pool:

@@ -12,7 +12,7 @@
 <div id="toolbar"><button id="toggle" disabled>开始运行</button><button id="reset" disabled>恢复站姿 R</button><button id="follow" disabled>相机跟随：开 F</button><button id="release" disabled>松手 / 清除拖拽</button></div>
 <div id="viewport"><canvas id="view" width="960" height="600" tabindex="0" aria-label="MuJoCo 交互画面，左键拖拽机器人上半身施力"></canvas><div id="hud">等待 MuJoCo 画面…</div></div>
 <div id="message"></div>
-<p><b>左键拖拽胸部、手臂或手</b>施力，松手卸力。橙色箭头表示实际力，青色点表示选中部位。<br>
+<p><b>左键拖拽机器人可选部位</b>施力，松手卸力；23 点版还支持躯干和四肢。橙色箭头表示实际施加的力，青色点表示选中部位。<br>
 右键拖拽转动视角，<kbd>Shift</kbd> + 右键平移，滚轮缩放。<kbd>空格</kbd>暂停，<kbd>R</kbd>恢复站姿，<kbd>F</kbd>切换跟随。切到后台或断开连接会取消拖拽并暂停。</p>
 <small>策略可能自行移动，松手不保证停止。这里没有额外的站立控制器；每个服务实例只允许一个浏览器标签页控制。</small>
 <script>
@@ -88,6 +88,10 @@ async function statusLoop(){
       const lines=[(state.paused?'已暂停':'运行中')+' · '+state.time.toFixed(2)+' s',
         (state.selected||'尚未选择施力点')+' · '+state.force_N.toFixed(1)+' N',
         'Root '+state.root_height.toFixed(2)+' m · 仿真速度 '+state.realtime_factor.toFixed(2)+'×'];
+      if(state.force_estimate_N!==null && state.force_estimate_N!==undefined)
+        lines.splice(2,0,'Estimator 总力 '+state.force_estimate_N.toFixed(1)+' N'+
+          (state.selected_estimated_force_N!==null && state.selected_estimated_force_N!==undefined
+            ? ' · 选中点 '+state.selected_estimated_force_N.toFixed(1)+' N' : ''));
       for(const line of lines){const d=document.createElement('div');d.textContent=line;hud.append(d);}
       if(state.fall){const d=document.createElement('div');d.id='fall';d.textContent='检测到跌倒，按 R 复位';hud.append(d);}
     }

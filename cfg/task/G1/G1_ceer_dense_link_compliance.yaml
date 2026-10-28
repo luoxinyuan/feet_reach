@@ -1,0 +1,20 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_compliance
+  - _self_
+name: G1CEERDenseLinkCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.dense_link_compliance.DenseLinkComplianceCommand
+  guidance_cache: artifacts/ceer_dense_link/full23/train
+  estimator_history: 10
+  force_slew: 150.0
+  dataset:
+    mem_paths: [passive_whole_body_full/train]
+observation:
+  policy:
+    upper_body_forces_b: {enabled: false}
+  # Underscore prevents VecNorm from altering fixed N/30 scaling.
+  force_gt_:
+    dense_force_gt: {}
+  estimator_history_:
+    dense_estimator_history: {}

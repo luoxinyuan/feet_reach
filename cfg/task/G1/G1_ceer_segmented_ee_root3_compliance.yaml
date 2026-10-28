@@ -1,0 +1,10 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_ee_root3_compliance
+  - _self_
+name: G1CEERSegmentedEERoot3ResidualCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.segmented_jacobian_compliance.SegmentedJacobianComplianceCommand
+  guidance_cache: artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10
+  dataset:
+    mem_paths: [../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset]

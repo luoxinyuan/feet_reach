@@ -86,3 +86,25 @@ CEER residual checkpoint (W&B run `4vqahv90`). Select it with
 `--policy segmented-multi10`; the package directory keeps the date prefix.
 A standalone frontal force-sequence renderer is available at
 `scripts/mujoco_whole_body_force_demo.py`.
+
+## Three-point and 23-point compliance students
+
+Two additional interactive bundles are available:
+
+- `20261028-ceer-ee-root3/`: the CEER residual trained with forces at pelvis and both EEs.
+- `20261028-ceer-dense23/`: the full-body 23-point residual with its causal force estimator.
+
+Start either browser demo with:
+
+```bash
+python scripts/mujoco_whole_body_web.py --policy ceer-ee-root3 --port 8782
+python scripts/mujoco_whole_body_web.py --policy ceer-dense23 --port 8783
+```
+
+The 3-point student receives the three applied forces in the root-local frame.
+The 23-point student does not receive MuJoCo force ground truth: its bundled
+estimator predicts forces from ten recent proprioceptive/action frames, then
+feeds those predictions to the residual actor. The browser HUD shows the
+estimator's total force magnitude and the selected point's estimate; orange
+arrows show applied forces and a blue arrow shows the selected estimate. Both
+use the same 30 N per-point drag limit and work with the desktop viewer as well.

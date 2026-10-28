@@ -223,6 +223,8 @@ def main():
                    default=Path("artifacts/ceer_single_hand_ee/full_20261025"))
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--workers", type=int, default=24)
+    p.add_argument("--points-config", type=Path,
+                   default=ROOT / "cfg/task/G1/G1_ceer_spring18_compliance.yaml")
     args = p.parse_args()
     source = args.source_cache.resolve()
     out = args.output.resolve()
@@ -290,7 +292,7 @@ def main():
     with ProcessPoolExecutor(max_workers=args.workers, initializer=_init_worker,
                              initargs=(str(source), str(args.single_hand_source.resolve()),
                                        str(ROOT / "artifacts/ceer_segmented_jacobian/geometry.json"),
-                                       str(ROOT / "cfg/task/G1/G1_ceer_spring18_compliance.yaml"))) as pool:
+                                       str(args.points_config.resolve()))) as pool:
         for i, result in enumerate(pool.map(_work, work, chunksize=1), 1):
             mid = result["motion_id"]
             off = int(motion_offsets[mid])

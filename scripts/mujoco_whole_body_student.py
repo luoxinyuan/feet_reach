@@ -19,6 +19,8 @@ DEFAULT_BUNDLE = ROOT / 'deploy/mujoco_whole_body/policy'
 DEFAULT_MODEL = ROOT / 'deploy/mujoco_whole_body/g1/g1_29dof_rev_1_0.xml'
 POLICY_BUNDLES = {
     'segmented-multi10': ROOT / 'deploy/mujoco_whole_body/20261026-segmented-multi10',
+    'ceer-ee-root3': ROOT / 'deploy/mujoco_whole_body/20261028-ceer-ee-root3',
+    'ceer-dense23': ROOT / 'deploy/mujoco_whole_body/20261028-ceer-dense23',
 }
 POINT_NAMES = ['torso_link'] + [f'{side}_{part}' for side in ['left','right']
     for part in ['shoulder_roll_link','elbow_link','wrist_roll_link','hand_mimic']]
@@ -141,15 +143,27 @@ class Simulation:
 
     def nearest_point(self, body, hit):
         name=self.model.body(body).name
-        if not any(x in name for x in ('torso','waist_pitch','shoulder','elbow','wrist','hand','head')):
-            return None
-        candidates=list(range(len(self.points)))
-        if name.startswith(('left_','right_')):
-            side=name.split('_')[0]
-            candidates=[i for i,b in enumerate(self.points) if self.model.body(b).name.startswith(side+'_')]
+        if self.meta.get('all_body_force_points', False):
+            candidates=list(range(len(self.points)))
         else:
-            candidates=[i for i,b in enumerate(self.points) if not self.model.body(b).name.startswith(('left_','right_'))]
+            if not any(x in name for x in ('pelvis','torso','waist_pitch','shoulder','elbow','wrist','hand','head')):
+                return None
+            candidates=list(range(len(self.points)))
+            if name.startswith(('left_','right_')):
+                side=name.split('_')[0]
+                candidates=[i for i,p in enumerate(self.point_names) if p.startswith(side+'_')]
+            elif name in ('pelvis','torso_link','waist_pitch_link'):
+                central=[i for i,p in enumerate(self.point_names) if not p.startswith(('left_','right_'))]
+                if central:candidates=central
         return min(candidates,key=lambda i:np.linalg.norm(self.point_positions()[i]-hit))
+
+
+class DenseEstimatorSimulation:
+    """Keep the 23-point force estimator in the causal MuJoCo policy loop."""
+    def __new__(cls, bundle, model_path, physics_dt=None):
+        # Import lazily so the ordinary MuJoCo and other residual modes stay small.
+        from mujoco_residual import DenseResidualSimulation
+        return DenseResidualSimulation(bundle, model_path, physics_dt)
 
 
 class Interactive:
@@ -265,11 +279,23 @@ class Interactive:
             geom=self.scene.geoms[self.scene.ngeom]
             mujoco.mjv_initGeom(geom,mujoco.mjtGeom.mjGEOM_SPHERE,np.array([.025]*3),s.point_positions()[self.selected],np.eye(3).ravel(),np.array([.1,1,.9,1],dtype=np.float32))
             self.scene.ngeom+=1
+            if hasattr(s,'estimated_forces'):
+                rot=s.data.xmat[s.root].reshape(3,3)
+                estimate=rot@s.estimated_forces[self.selected]*30.
+                if np.linalg.norm(estimate)>.05:
+                    start=s.point_positions()[self.selected]+np.array([0.,0.,.04])
+                    geom=self.scene.geoms[self.scene.ngeom]
+                    mujoco.mjv_initGeom(geom,mujoco.mjtGeom.mjGEOM_ARROW,np.zeros(3),np.zeros(3),np.eye(3).ravel(),np.array([.05,.65,1.,1.],dtype=np.float32))
+                    mujoco.mjv_connector(geom,mujoco.mjtGeom.mjGEOM_ARROW,.01,start,start+.02*estimate)
+                    self.scene.ngeom+=1
         w,h=self.glfw.get_framebuffer_size(self.window); viewport=mujoco.MjrRect(0,0,w,h)
         mujoco.mjr_render(viewport,self.scene,self.context)
         magnitude=float(np.linalg.norm(s.forces,axis=1).sum())
         name=s.point_names[self.selected] if self.selected is not None else 'none'
         status=f"PURE STUDENT  t={s.data.time:.2f}s  {'PAUSED' if self.paused else 'RUNNING'}\nPoint: {name} | force {magnitude:.1f} N (cap 30 N)\nRoot height {s.data.qpos[2]:.2f} m"
+        if self.selected is not None and hasattr(s,'estimated_forces'):
+            estimated=float(np.linalg.norm(s.estimated_forces[self.selected])*30.)
+            status+=f"\nSelected-point estimate {estimated:.1f} N"
         if s.first_fall is not None: status+='\nFALL DETECTED -- R to reset'
         mujoco.mjr_overlay(mujoco.mjtFont.mjFONT_NORMAL,mujoco.mjtGridPos.mjGRID_TOPLEFT,viewport,status,'',self.context)
         mujoco.mjr_overlay(mujoco.mjtFont.mjFONT_NORMAL,mujoco.mjtGridPos.mjGRID_BOTTOMLEFT,viewport,
@@ -302,7 +328,10 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     bundle = bundle or (DEFAULT_BUNDLE if policy == 'direct' else
                         POLICY_BUNDLES.get(policy, ROOT / 'deploy/mujoco_whole_body' / policy))
     backend = json.loads((bundle/'metadata.json').read_text()).get('backend', 'direct')
-    if backend in ('sonic','ceer','jacobian','segmented'):
+    if backend == 'dense-estimator':
+        from mujoco_residual import DenseResidualSimulation
+        sim = DenseResidualSimulation(bundle, model_path)
+    elif backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
         sim = ResidualSimulation(bundle, model_path)
     else:
@@ -314,7 +343,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','segmented','segmented-static-hold','segmented-multi10'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -332,18 +361,24 @@ def main():
     heights=[]; maxforce=0.; maxerror=0.; actions=[]
     for _ in range(round(args.seconds/s.model.opt.timestep)):
         desired=np.zeros_like(s.forces)
-        if args.test_force and 5<=s.data.time<7: desired[4]=[15,0,0]
+        if args.test_force and 5<=s.data.time<7:
+            slot=next((i for i,n in enumerate(s.point_names) if n in ('left_ee','left_hand')),min(4,len(s.points)-1))
+            desired[slot]=[15,0,0]
         s.step(desired)
         heights.append(float(s.data.qpos[2])); maxforce=max(maxforce,float(np.linalg.norm(s.forces,axis=1).max()))
         if s.steps%s.decimation==1:
-            expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
-            # last_obs is before mj_step; verify through observation at the same state instead.
-            maxerror=max(maxerror,float(np.max(np.abs(s.observation()[238:238+s.forces.size]-expected))))
+            if s.meta.get('backend') != 'dense-estimator':
+                expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
+                # last_obs is before mj_step; verify through observation at the same state instead.
+                maxerror=max(maxerror,float(np.max(np.abs(s.observation()[238:238+s.forces.size]-expected))))
             actions.append(float(np.max(np.abs(s.last_action))))
     report={'seconds':args.seconds,'scripted_force':args.test_force,'root_height_min':min(heights),
         'root_height_final':heights[-1],'first_fall_time':s.first_fall,'max_force_N':maxforce,
         'force_observation_max_error':maxerror,'max_abs_action':max(actions),'finite':bool(np.isfinite(s.data.qpos).all()),
         'root_final_xyz':s.data.qpos[:3].tolist()}
+    if hasattr(s,'estimated_forces'):
+        report['estimated_force_total_N']=float(np.linalg.norm(s.estimated_forces,axis=1).sum()*30.)
+        report['estimated_force_finite']=bool(np.isfinite(s.estimated_forces).all())
     print(json.dumps(report,indent=2))
     if args.report:
         args.report.parent.mkdir(parents=True,exist_ok=True); args.report.write_text(json.dumps(report,indent=2)+'\n')

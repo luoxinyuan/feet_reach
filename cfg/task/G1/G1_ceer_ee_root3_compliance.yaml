@@ -1,0 +1,10 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_spring18_compliance
+  - _self_
+name: G1CEEREERoot3ResidualCompliance
+command:
+  force_points:
+    - {name: root, body: pelvis, offset: [0., 0., 0.]}
+    - {name: left_ee, body: left_hand_mimic, offset: [0., 0., 0.]}
+    - {name: right_ee, body: right_hand_mimic, offset: [0., 0., 0.]}

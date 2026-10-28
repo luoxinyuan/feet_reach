@@ -145,3 +145,27 @@ python scripts/mujoco_whole_body_web.py --policy segmented-static-hold --port 87
 对应 checkpoint 为 `static_hold_aug_20261025_165158 / 3dlvh2d9`。该 policy
 在单手施力后被动手臂抬高超过 10 cm 的比例由 13.7% 降至 4.3%；左右侧表现不完全一致，
 详细评测见 `artifacts/ceer_segmented_singlehand_stop_eval_20261025/README.md`。
+
+### 3 点 EE-root 与 23 点 force-estimator policy
+
+两版都已打包进 MuJoCo demo，可用浏览器交互拖拽施力：
+
+```bash
+python scripts/mujoco_whole_body_web.py --policy ceer-ee-root3 --port 8782
+python scripts/mujoco_whole_body_web.py --policy ceer-dense23 --port 8783
+```
+
+打开对应端口后点“开始运行”，左键拖动机器人施力，松手卸力。EE-root3 的三个力通道
+分别对应 pelvis、left EE、right EE，输入 MuJoCo 实际施加的 root-local 力。23 点版覆盖
+躯干与四肢训练中的 23 个 link；student 不读取真实力，而是先从 10 帧本体状态和
+low-level action 历史预测 23 个力，再将预测值输入 actor。HUD 中的 `Estimator` 是估计
+总力，橙色箭头表示实际外力；拖动选中某个点时，蓝色箭头和 HUD 数值表示该点的估计力。
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy ceer-ee-root3  # 桌面窗口
+python scripts/mujoco_whole_body_student.py --policy ceer-dense23   # 桌面窗口
+```
+
+两个部署包、checkpoint 来源、SHA-256 和导出误差记录在
+`deploy/mujoco_whole_body/20261028-ceer-ee-root3/` 与
+`deploy/mujoco_whole_body/20261028-ceer-dense23/`。运行时不依赖训练数据或 Isaac。
