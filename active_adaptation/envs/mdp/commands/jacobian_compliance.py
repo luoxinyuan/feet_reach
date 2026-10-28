@@ -3,12 +3,24 @@ import torch
 from .sonic_compliance import SonicComplianceCommand
 from active_adaptation.utils.body_guidance import consistent_force, limit_force
 from active_adaptation.utils.jacobian_guidance import allocate_jacobian_forces, reconstruction, point_linear_jacobian
+from active_adaptation.utils.symmetry import SymmetryTransform
 
 
 class JacobianComplianceCommand(SonicComplianceCommand):
     def __init__(self, env, *args, joint_delta_gain=80., joint_feedback_gain=20.,
-                 force_penalty=1., smooth_penalty=1., resample_attempts=2, **kwargs):
+                 force_penalty=1., smooth_penalty=1., resample_attempts=2, force_points=None, **kwargs):
         super().__init__(env, *args, **kwargs)
+        if force_points is not None:
+            # This allocator applies forces at link origins. Reject offsets rather
+            # than silently using a different point in physics and the Jacobian.
+            names = [point['body'] for point in force_points]
+            if len(names) < 3 or len(set(names)) != len(names):
+                raise ValueError('Online Jacobian guidance needs >=3 distinct link origins.')
+            if any(any(float(x) != 0. for x in point.get('offset', [0., 0., 0.]))
+                   for point in force_points):
+                raise ValueError('Online Jacobian guidance only supports zero point offsets.')
+            self.point_ids = torch.tensor([self.asset.body_names.index(n) for n in names], device=self.device)
+            self.motion_point_ids = torch.tensor([self.dataset.body_names.index(n) for n in names], device=self.device)
         if self.asset.is_fixed_base:
             raise ValueError('This experiment requires the floating-base G1.')
         self.joint_delta_gain = joint_delta_gain
@@ -22,6 +34,10 @@ class JacobianComplianceCommand(SonicComplianceCommand):
         self.prompt_weights = torch.full((6 + self.asset.num_joints,), 1. / .3, device=self.device)
         self.prompt_weights[:3] = 2.
         self.prompt_weights[3:6] = 2. / .3
+
+    def upper_body_forces_b_sym(self):
+        dim = 3 * len(self.point_ids)
+        return SymmetryTransform(torch.arange(dim), torch.ones(dim))
 
     def _reference(self):
         super()._reference()

@@ -1,0 +1,18 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_ee_root3_compliance
+  - _self_
+name: G1CEERDirectSpringRoot3ResidualCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.direct_keypoint_spring.DirectKeypointSpringCommand
+  spring_gain: 80.0
+  dataset:
+    mem_paths: [../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset]
+# Existing CEER motion-tracking terms, explicitly retained (not duplicated).
+reward:
+  tracking:
+    ee_tracking: {weight: 2.0}
+    root_pos_tracking: {weight: 0.5}
+    root_rot_tracking: {weight: 0.5}
+    root_vel_tracking: {weight: 1.0}
+    root_ang_vel_tracking: {weight: 1.0}

@@ -893,13 +893,14 @@ def high_action_rate2_l2(self):
 
 @reward_func
 def action_rate_l2(self):
-    action_diff = self.action_manager.action_buf[:, :, 0] - self.action_manager.action_buf[:, :, 1]
+    # Action managers store [environment, history (newest first), joint].
+    action_diff = self.action_manager.action_buf[:, 0, :] - self.action_manager.action_buf[:, 1, :]
     return - action_diff.square().sum(dim=-1, keepdim=True)
 
 
 @reward_func
 def action_rate2_l2(self):
     action_diff = (
-        self.action_manager.action_buf[:, :, 0] - 2 * self.action_manager.action_buf[:, :, 1] + self.action_manager.action_buf[:, :, 2]
+        self.action_manager.action_buf[:, 0, :] - 2 * self.action_manager.action_buf[:, 1, :] + self.action_manager.action_buf[:, 2, :]
     )
     return - action_diff.square().sum(dim=-1, keepdim=True)

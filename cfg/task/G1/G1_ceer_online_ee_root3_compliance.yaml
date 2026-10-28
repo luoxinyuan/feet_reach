@@ -1,0 +1,13 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_jacobian_compliance
+  - _self_
+name: G1CEEROnlineEERoot3ResidualCompliance
+command:
+  # Keep the offline root3 motion corpus; only generate forces online.
+  dataset:
+    mem_paths: [../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset]
+  force_points:
+    - {name: root, body: pelvis, offset: [0., 0., 0.]}
+    - {name: left_ee, body: left_hand_mimic, offset: [0., 0., 0.]}
+    - {name: right_ee, body: right_hand_mimic, offset: [0., 0., 0.]}
