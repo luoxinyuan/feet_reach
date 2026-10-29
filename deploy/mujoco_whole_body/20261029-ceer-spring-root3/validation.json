@@ -1,0 +1,16 @@
+{
+  "seconds": 30.0,
+  "scripted_force": true,
+  "root_height_min": 0.740451615102521,
+  "root_height_final": 0.7761523394711332,
+  "first_fall_time": null,
+  "max_force_N": 15.0,
+  "force_observation_max_error": 4.763518823835966e-07,
+  "max_abs_action": 2.3236606121063232,
+  "finite": true,
+  "root_final_xyz": [
+    1.1152931910148363,
+    0.470384020093413,
+    0.7761523394711332
+  ]
+}

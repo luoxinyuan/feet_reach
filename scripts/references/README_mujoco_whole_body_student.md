@@ -134,3 +134,16 @@ The independently exported multi10 segmented checkpoint is available as
 `--policy segmented-multi10` in both viewers. Render its frontal force sequence
 with `scripts/mujoco_whole_body_force_demo.py`; the yellow arrow is anchored at
 the left-hand application point. See [the multi10 instructions](README_mujoco_residual.md#multi10-单手多方向力序列).
+
+### 在线 Jacobian 与直接弹簧 root3（2026-10-29）
+
+两版均为训练完成的 residual student + frozen CEER，从站立开始，仅根据实际外力和自身状态/自身参考执行，不加载 AMASS 或未来 motion target。训练用的自动引导力生成器不会在交互运行时执行。
+
+```bash
+python scripts/mujoco_whole_body_web.py --policy ceer-online-root3 --port 8784
+python scripts/mujoco_whole_body_web.py --policy ceer-spring-root3 --port 8785
+```
+
+在 VS Code 转发相应端口，打开浏览器，点击开始并鼠标拖拽。三个力通道为 pelvis、左手、右手，每点最多 30 N，合计 60 N。桌面运行可将脚本换成 `scripts/mujoco_whole_body_student.py` 并去掉 `--port`。
+
+部署包位于 `deploy/mujoco_whole_body/20261029-ceer-online-root3/` 和 `deploy/mujoco_whole_body/20261029-ceer-spring-root3/`，包含 student、normalization、frozen CEER、元数据与校验和。无需 Isaac Lab 或训练数据，依赖安装沿用本文前面的步骤。
