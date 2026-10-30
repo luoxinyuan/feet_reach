@@ -147,3 +147,14 @@ python scripts/mujoco_whole_body_web.py --policy ceer-spring-root3 --port 8785
 在 VS Code 转发相应端口，打开浏览器，点击开始并鼠标拖拽。三个力通道为 pelvis、左手、右手，每点最多 30 N，合计 60 N。桌面运行可将脚本换成 `scripts/mujoco_whole_body_student.py` 并去掉 `--port`。
 
 部署包位于 `deploy/mujoco_whole_body/20261029-ceer-online-root3/` 和 `deploy/mujoco_whole_body/20261029-ceer-spring-root3/`，包含 student、normalization、frozen CEER、元数据与校验和。无需 Isaac Lab 或训练数据，依赖安装沿用本文前面的步骤。
+
+### Online-estimated root3 MuJoCo sim2sim 修复（2026-10-30）
+
+旧导出把 residual task 的动作参数错用成 frozen CEER 低层动作参数，导致 MuJoCo 每个关节都套用统一的 0.5 action scale，并漏掉 CEER 低层训练时的 action delay、平滑和启动保护。v2 从训练时冻结的 CEER checkpoint 重新导出这些参数：逐关节 scale、0–4 个 physics-step delay、alpha/jitter 与 boot protection。旧包保留为 `v1`。
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy ceer-online-estimated-root3
+python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --port 8784
+```
+
+`ceer-online-estimated-root3` 默认选择 `deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3-v2/`；显式运行旧版可用 `--policy ceer-online-estimated-root3-v1`。v2 的 Isaac Sim / MuJoCo 空载与 10 N 回归结果记录在 `artifacts/ceer_online_estimated_root3/`。

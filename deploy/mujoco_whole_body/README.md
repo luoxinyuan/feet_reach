@@ -95,7 +95,7 @@ Two additional interactive bundles are available:
 
 - `20261028-ceer-ee-root3/`: the CEER residual trained with forces at pelvis and both EEs.
 - `20261028-ceer-dense23/`: the full-body 23-point residual with its causal force estimator.
-- `20261030-ceer-online-estimated-root3/`: the online-trained 3-point residual with its causal force estimator.
+- `20261030-ceer-online-estimated-root3-v2/`: corrected MuJoCo adapter for the online-trained 3-point residual and causal force estimator. The original v1 bundle is retained for comparison.
 
 Start either browser demo with:
 
@@ -114,4 +114,5 @@ arrows show applied forces and a blue arrow shows the selected estimate. Both
 use the same 30 N per-point drag limit and work with the desktop viewer as well.
 The 20261030 online-estimated root3 student also uses only its bundled causal
 estimator at the pelvis and both EEs; it does not feed MuJoCo force ground truth
-to the actor.
+to the actor. Its default alias selects the v2 bundle, which restores the
+frozen CEER low-level action scales and filters from the training checkpoint.

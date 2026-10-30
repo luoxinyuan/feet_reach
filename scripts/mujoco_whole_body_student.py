@@ -19,7 +19,9 @@ DEFAULT_BUNDLE = ROOT / 'deploy/mujoco_whole_body/policy'
 DEFAULT_MODEL = ROOT / 'deploy/mujoco_whole_body/g1/g1_29dof_rev_1_0.xml'
 POLICY_BUNDLES = {
     'ceer-online-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-online-root3',
-    'ceer-online-estimated-root3': ROOT / 'deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3',
+    'ceer-online-estimated-root3': ROOT / 'deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3-v2',
+    'ceer-online-estimated-root3-v1': ROOT / 'deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3',
+    'ceer-online-estimated-root3-v2': ROOT / 'deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3-v2',
     'ceer-spring-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-spring-root3',
     'segmented-multi10': ROOT / 'deploy/mujoco_whole_body/20261026-segmented-multi10',
     'jacobian-no-ee': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-jacobian-no-ee',
@@ -347,7 +349,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-spring-root3'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-root3-v1','ceer-online-estimated-root3-v2','ceer-spring-root3'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -362,7 +364,7 @@ def main():
     if not args.headless:
         Interactive(s).run(args.gui_frames,args.screenshot)
         return
-    heights=[]; maxforce=0.; maxerror=0.; actions=[]
+    heights=[]; maxforce=0.; maxerror=0.; actions=[]; estimated_total=[]; applied_total=[]
     for _ in range(round(args.seconds/s.model.opt.timestep)):
         desired=np.zeros_like(s.forces)
         if args.test_force and 5<=s.data.time<7:
@@ -370,6 +372,9 @@ def main():
             desired[slot]=[15,0,0]
         s.step(desired)
         heights.append(float(s.data.qpos[2])); maxforce=max(maxforce,float(np.linalg.norm(s.forces,axis=1).max()))
+        applied_total.append(float(np.linalg.norm(s.forces,axis=1).sum()))
+        if hasattr(s,'estimated_forces'):
+            estimated_total.append(float(np.linalg.norm(s.estimated_forces,axis=1).sum()*30.))
         if s.steps%s.decimation==1:
             if s.meta.get('backend') != 'dense-estimator':
                 expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
@@ -381,8 +386,13 @@ def main():
         'force_observation_max_error':maxerror,'max_abs_action':max(actions),'finite':bool(np.isfinite(s.data.qpos).all()),
         'root_final_xyz':s.data.qpos[:3].tolist()}
     if hasattr(s,'estimated_forces'):
-        report['estimated_force_total_N']=float(np.linalg.norm(s.estimated_forces,axis=1).sum()*30.)
+        report['estimated_force_total_N']=estimated_total[-1]
         report['estimated_force_finite']=bool(np.isfinite(s.estimated_forces).all())
+        t=np.arange(len(estimated_total))*s.model.opt.timestep
+        for name,mask in {'before_force':t<5.,'during_force':(t>=5.)&(t<7.),'after_release':t>=7.}.items():
+            if mask.any():
+                report[f'estimated_force_{name}_mean_N']=float(np.mean(np.asarray(estimated_total)[mask]))
+                report[f'applied_force_{name}_mean_N']=float(np.mean(np.asarray(applied_total)[mask]))
     print(json.dumps(report,indent=2))
     if args.report:
         args.report.parent.mkdir(parents=True,exist_ok=True); args.report.write_text(json.dumps(report,indent=2)+'\n')
