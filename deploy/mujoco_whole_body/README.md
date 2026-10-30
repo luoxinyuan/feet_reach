@@ -41,12 +41,14 @@ actuator settings; it does not rewrite the bundled source XML or meshes.
 - `jacobian/`: the Jacobian compliance residual student and the exact frozen CEER
   low-level controller used by its training checkpoint, with its own normalization
   and kinematics/motor metadata.
+- `20261029-ceer-jacobian-no-ee/`: the completed 9-point online-Jacobian residual
+  with the separate EE-tracking reward disabled; kept alongside the older Jacobian bundle.
 - `segmented-static-hold/`: the static-hold augmented segmented policy evaluated
   on 2026-10-25 (W&B run `3dlvh2d9`), kept separately from `segmented/`.
 - `validation_residual.json`: export, adapter, headless and browser test results.
 
-Run `python scripts/mujoco_whole_body_web.py --policy sonic`, `--policy ceer`, or
-`--policy jacobian`. The original `--policy direct` remains the default. All policies
+Run `python scripts/mujoco_whole_body_web.py --policy sonic`, `--policy ceer`,
+`--policy jacobian`, or `--policy jacobian-no-ee`. The original `--policy direct` remains the default. All policies
 share the bundled G1 meshes. Residual student and CEER weights are ordinary Git
 files, without Git LFS.
 SONIC's two official ONNX files (about 88 MB) are fetched once into

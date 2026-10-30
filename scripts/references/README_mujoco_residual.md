@@ -47,6 +47,25 @@ and force observation used by the other interactive policies. The checkpoint has
 and source run are recorded in the bundle metadata. Export from a training
 environment using the Jacobian checkpoint recorded in that bundle's metadata.
 
+### 9-point Jacobian without EE tracking reward
+
+The completed 2026-10-29 checkpoint is packaged separately at
+`deploy/mujoco_whole_body/20261029-ceer-jacobian-no-ee/`. Select it with
+`--policy jacobian-no-ee`; the older `--policy jacobian` bundle remains available.
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy jacobian-no-ee
+python scripts/mujoco_whole_body_web.py --policy jacobian-no-ee --port 8785
+```
+
+This residual uses the online 9-candidate-point Jacobian command and disables only
+the separate EE-tracking reward. It still has joint and keypoint tracking rewards.
+The policy receives the current ground-truth applied force at all nine candidate
+points in the root-local frame; the interactive demo applies and displays the force
+at the selected point. Runtime uses the exported student, normalization, and matching
+frozen CEER low-level controller. It needs no Isaac Lab or motion dataset. The export
+is from W&B run `9td27f1q`; validation results are in the dated artifact folder.
+
 ## 控制器接口
 
 Student 以 50 Hz 运行，输入 381 维：角速度、重力方向、5 帧关节角、3 帧 residual 输出、9 个施力点的实际本体系力、关节速度，以及自己生成的关节参考 / 跟踪误差 / 参考更新速度。归一化使用各自训练完成后的固定统计。
