@@ -95,12 +95,14 @@ Two additional interactive bundles are available:
 
 - `20261028-ceer-ee-root3/`: the CEER residual trained with forces at pelvis and both EEs.
 - `20261028-ceer-dense23/`: the full-body 23-point residual with its causal force estimator.
+- `20261030-ceer-online-estimated-root3/`: the online-trained 3-point residual with its causal force estimator.
 
 Start either browser demo with:
 
 ```bash
 python scripts/mujoco_whole_body_web.py --policy ceer-ee-root3 --port 8782
 python scripts/mujoco_whole_body_web.py --policy ceer-dense23 --port 8783
+python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --port 8784
 ```
 
 The 3-point student receives the three applied forces in the root-local frame.
@@ -110,3 +112,6 @@ feeds those predictions to the residual actor. The browser HUD shows the
 estimator's total force magnitude and the selected point's estimate; orange
 arrows show applied forces and a blue arrow shows the selected estimate. Both
 use the same 30 N per-point drag limit and work with the desktop viewer as well.
+The 20261030 online-estimated root3 student also uses only its bundled causal
+estimator at the pelvis and both EEs; it does not feed MuJoCo force ground truth
+to the actor.

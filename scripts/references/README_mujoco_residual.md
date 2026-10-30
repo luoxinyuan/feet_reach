@@ -188,3 +188,15 @@ python scripts/mujoco_whole_body_student.py --policy ceer-dense23   # 桌面窗�
 两个部署包、checkpoint 来源、SHA-256 和导出误差记录在
 `deploy/mujoco_whole_body/20261028-ceer-ee-root3/` 与
 `deploy/mujoco_whole_body/20261028-ceer-dense23/`。运行时不依赖训练数据或 Isaac。
+
+2026-10-30 完成的 online-estimated root3 student 也已导出，保持 root、left EE、right EE
+三个输入点；policy 使用本体状态历史估计这三处外力，再执行 residual。桌面或浏览器运行：
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy ceer-online-estimated-root3
+python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --port 8784
+```
+
+部署包位于 `deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3/`，含 student、
+force estimator、冻结 CEER low-level、normalization 和 checkpoint SHA-256；导出权重的
+TorchScript 数值与训练网络一致。运行时不依赖 Isaac 或训练数据。

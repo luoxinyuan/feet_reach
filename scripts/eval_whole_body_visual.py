@@ -5,9 +5,10 @@ import sys,argparse,json,hashlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT));os.environ.setdefault('MEMPATH',str(ROOT/'dataset'))
 import numpy as np
-p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path);p.add_argument('--controller',default='student',choices=['student','teacher']);p.add_argument('--clip',type=int,default=-1);p.add_argument('--preview',type=int,default=0);p.add_argument('--output',type=Path,required=True);args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path);p.add_argument('--controller',default='student',choices=['student','teacher']);p.add_argument('--clip',type=int,default=-1);p.add_argument('--dataset',default='passive_whole_body_full/val');p.add_argument('--task',default=None,help='Hydra task override, e.g. G1/G1_base');p.add_argument('--disable-forces',action='store_true');p.add_argument('--preview',type=int,default=0);p.add_argument('--output',type=Path,required=True);args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
 import torch
 from omegaconf import OmegaConf
+import hydra
 import active_adaptation.learning
 from isaaclab.app import AppLauncher
 if args.checkpoint:ckpt=args.checkpoint
@@ -15,11 +16,17 @@ else:
  run=Path((ROOT/'outputs/passive-whole-body/latest_pipeline.txt').read_text().strip());phase='finetune' if args.controller=='student' else 'train';ckpt=next((run/phase).rglob('checkpoint_final.pt'))
 state=torch.load(ckpt,map_location='cpu',weights_only=False);cfg=OmegaConf.create(OmegaConf.to_container(state['cfg'],resolve=True));OmegaConf.set_struct(cfg,False)
 cfg.checkpoint_path=str(ckpt);cfg.vecnorm='eval';cfg.task.num_envs=1;cfg.wandb.mode='disabled';cfg.eval_render=True;cfg.headless=True
-cfg.task.command.dataset.mem_paths=['passive_whole_body_full/val'];cfg.task.command.dataset.path_weights=[1.];cfg.task.command.dataset.resample_on_reset=False
+cfg.task.command.dataset.mem_paths=[args.dataset];cfg.task.command.dataset.path_weights=[1.];cfg.task.command.dataset.resample_on_reset=False
+if args.task is not None:
+ with hydra.initialize(config_path='../cfg',job_name='eval_visual_task',version_base=None):
+  task_cfg=hydra.compose(config_name='eval',overrides=[f'task={args.task}'])
+ cfg.task=task_cfg.task
+ cfg.task.num_envs=1
+ cfg.task.command.dataset.mem_paths=[args.dataset];cfg.task.command.dataset.path_weights=[1.];cfg.task.command.dataset.resample_on_reset=False
 if 'guidance_cache' in cfg.task.command:cfg.task.command.guidance_cache=str(ROOT/'artifacts/ceer_segmented_jacobian/val18')
 # Choose a longest clip with median root travel, without looking at policy performance.
 from active_adaptation.utils.motion import MotionDataset
-ds=MotionDataset.create_from_path_lazy(str(ROOT/'dataset/passive_whole_body_full/val'))
+ds=MotionDataset.create_from_path_lazy(args.dataset)
 long=(ds.lengths==ds.lengths.max()).nonzero().flatten().tolist();travel=[]
 for i in long:
  s,e=int(ds.starts[i]),int(ds.ends[i]);x=ds.data.root_pos_w[s:e,:2].float();travel.append(float((x[1:]-x[:-1]).norm(dim=-1).sum()))
@@ -43,6 +50,7 @@ try:
  if args.controller=='student':assert list(policy.in_keys)==['policy']
  torch.manual_seed(42);np.random.seed(42)
  td=env.reset();assert int(cmd.t[0])==0
+ if args.disable_forces and hasattr(cmd,'set_external_force_enabled'):cmd.set_external_force_enabled(False)
  initial_hash=hashlib.sha256(asset.data.joint_pos.cpu().numpy().tobytes()+asset.data.root_pos_w.cpu().numpy().tobytes()).hexdigest()
  label=cfg.task.name if args.checkpoint else args.controller
  stage=omni.usd.get_context().get_stage();cache=UsdGeom.XformCache()
@@ -136,7 +144,7 @@ try:
     writer.append_data(np.asarray(im));images+=1
     if step in (0,50,250,500,750):im.save(args.output/f'frame_{step:04d}.png')
  writer.close()
- summary=dict(controller=args.controller,backend=label,seed=42,initial_sha256=initial_hash,clip_id=clip,selection='longest clip, median root travel; no performance filtering' if args.clip<0 else 'explicit clip',checkpoint=str(ckpt),reference_frames=length,rendered_reference_end=int(cmd.t[0]),video_frames=images,video_fps=25,video_seconds=images/25,first_tracking_failure_s=first_fail,ghost_meshes=mesh_count,ghost_opacity=.16,force_arrow_m_per_N=.08,reset_count=1)
+ summary=dict(controller=args.controller,backend=label,seed=42,initial_sha256=initial_hash,clip_id=clip,selection='longest clip, median root travel; no performance filtering' if args.clip<0 else 'explicit clip',checkpoint=str(ckpt),reference_frames=length,rendered_reference_end=int(cmd.t[0]),video_frames=images,video_fps=25,video_seconds=images/25,first_tracking_failure_s=first_fail,forces_disabled=bool(args.disable_forces),ghost_meshes=mesh_count,ghost_opacity=.16,force_arrow_m_per_N=.08,reset_count=1)
  (args.output/'summary.json').write_text(json.dumps(summary,indent=2));(args.output/'trace.json').write_text(json.dumps(rows));print('VIDEO_COMPLETE',summary,flush=True)
  SimulationContext.instance()._disable_app_control_on_stop_handle=True;env.close()
 except BaseException:
