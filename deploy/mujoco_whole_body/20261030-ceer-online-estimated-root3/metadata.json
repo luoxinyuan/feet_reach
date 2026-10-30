@@ -253,33 +253,33 @@
   "action_scale": [
     0.5,
     0.5,
+    0.25,
+    0.25,
+    0.25,
+    0.25,
+    0.25,
+    0.25,
+    0.25,
     0.5,
     0.5,
+    1.0,
+    1.0,
     0.5,
     0.5,
+    1.0,
+    1.0,
     0.5,
     0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
   ],
   "policy_dt": 0.02,
   "physics_dt": 0.005,
@@ -370,16 +370,17 @@
   ],
   "ceer_force_limit": 5.0,
   "low_action_config": {
-    "max_delay": 0,
+    "max_delay": 4,
     "alpha": [
-      1.0,
-      1.0
+      0.9,
+      0.9
     ],
     "alpha_wide": [
-      1.0,
+      0.8,
       1.0
     ],
-    "boot_protect": false
+    "alpha_jit_scale": 0.025,
+    "boot_protect": true
   },
   "fk_edges": [
     [
@@ -1007,5 +1008,9 @@
     ]
   },
   "wandb_run": "https://wandb.ai/luoxinyuan-duke-university/ceer-online-estimated-root3-compliance/runs/4e69gvyj",
+  "residual_reference_action_scale": [
+    0.5
+  ],
+  "low_level_checkpoint_sha256": "637ff52b2712b4ad3c5fa4b8004a85ff11567e703a92532345867de28c45dc7c",
   "force_estimator_export_max_error": 0.0
 }

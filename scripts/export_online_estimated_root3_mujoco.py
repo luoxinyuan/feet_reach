@@ -16,7 +16,7 @@ from export_interactive_compliance import ResidualActor, action_metadata, normal
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKPOINT = ROOT / 'outputs/ceer-online-estimated-root3/full_20261029_131216/finetune/wandb/run-20261030_003020-4e69gvyj/files/checkpoint_final.pt'
-BUNDLE = ROOT / 'deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3-v2'
+BUNDLE = ROOT / 'deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3'
 TEMPLATE = ROOT / 'deploy/mujoco_whole_body/20261028-ceer-ee-root3/metadata.json'
 LOW_LEVEL = ROOT / 'deploy/mujoco_whole_body/20261026-segmented-multi10/low_level.pt'
 FROZEN_CEER = ROOT / '.cache/ceer/checkpoint_final.pt'

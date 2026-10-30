@@ -14,4 +14,4 @@ Start the browser viewer:
 python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --port 8784
 ```
 
-The policy and estimator TorchScript exports match their checkpoint networks exactly (maximum probe error 0). An 8-second headless idle playback fell at 3.8 s, and the estimator predicted nonzero force while no force was applied. The older direct-force `ceer-ee-root3` bundle also fell during an 8-second idle playback, so this smoke result appears shared with the current MuJoCo residual runtime/model and is not specific to the estimator export. The bundle itself loads and produces finite actions and estimates.
+This bundle restores the frozen CEER low-level action configuration used in Isaac Sim: per-joint action scales, action delay, smoothing/jitter, and boot protection. The actor and estimator exports match their checkpoint networks exactly (maximum probe error 0). In the paired MuJoCo regression, this corrected bundle remained standing for 10 seconds with and without a 15 N left-hand pull; the previous export fell at 3.8 seconds even without an applied force.
