@@ -1,0 +1,8 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_jacobian_compliance
+  - _self_
+name: G1CEERJacobianNoEETrackingResidualCompliance
+reward:
+  tracking:
+    ee_tracking: {weight: 0.0, enabled: false}

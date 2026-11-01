@@ -1,0 +1,16 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_jacobian_no_ee_compliance
+  - _self_
+name: G1CEEROnlineEstimated9PointNoEECompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.online_estimated_compliance.OnlineEstimatedComplianceCommand
+  estimator_history: 10
+  expected_force_points: 9
+observation:
+  policy:
+    upper_body_forces_b: {enabled: false}
+  force_gt_:
+    dense_force_gt: {}
+  estimator_history_:
+    dense_estimator_history: {}

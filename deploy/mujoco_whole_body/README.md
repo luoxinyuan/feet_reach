@@ -96,6 +96,7 @@ Two additional interactive bundles are available:
 - `20261028-ceer-ee-root3/`: the CEER residual trained with forces at pelvis and both EEs.
 - `20261028-ceer-dense23/`: the full-body 23-point residual with its causal force estimator.
 - `20261030-ceer-online-estimated-root3/`: corrected MuJoCo adapter for the online-trained 3-point residual and causal force estimator, replacing the earlier incorrect export in place.
+- `20261101-ceer-online-estimated-9pt/`: the trained 9-point online-estimated residual and causal force estimator.
 
 Start either browser demo with:
 

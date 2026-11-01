@@ -200,3 +200,10 @@ python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --p
 部署包位于 `deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3/`，含 student、
 force estimator、冻结 CEER low-level、normalization 和 checkpoint SHA-256；导出权重的
 TorchScript 数值与训练网络一致。运行时不依赖 Isaac 或训练数据。
+
+2026-11-01 完成训练的 9 点 online-estimated compliance 也已导出，桌面和网页
+分别通过 `--policy ceer-online-estimated-9pt` 运行。9 个点沿用旧版躯干、左右肩/肘/腕/手，
+force estimator 根据 10 帧本体与 low-level action 历史输出 27 维 root-local 力。
+导出包在 `deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt/`。
+MuJoCo 12 秒无跌倒测试通过，但 estimator 无外力时仍估计约 12.8 N，15 N 手部拉力时
+总估计约 31.4 N；幅值校准仍有偏差，HUD 估计不是准确测力值。
