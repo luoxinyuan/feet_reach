@@ -379,8 +379,9 @@ def main():
             if s.meta.get('backend') != 'dense-estimator':
                 expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
                 # last_obs is before mj_step; verify through observation at the same state instead.
-                maxerror=max(maxerror,float(np.max(np.abs(s.observation()[238:238+s.forces.size]-expected))))
-            actions.append(float(np.max(np.abs(s.last_action))))
+                force_start=(s.meta['obs_dim']-s.forces.size if s.meta.get('backend')=='ceer' else 238)
+                maxerror=max(maxerror,float(np.max(np.abs(s.observation()[force_start:force_start+s.forces.size]-expected))))
+        actions.append(float(np.max(np.abs(s.last_action))))
     report={'seconds':args.seconds,'scripted_force':args.test_force,'root_height_min':min(heights),
         'root_height_final':heights[-1],'first_fall_time':s.first_fall,'max_force_N':maxforce,
         'force_observation_max_error':maxerror,'max_abs_action':max(actions),'finite':bool(np.isfinite(s.data.qpos).all()),

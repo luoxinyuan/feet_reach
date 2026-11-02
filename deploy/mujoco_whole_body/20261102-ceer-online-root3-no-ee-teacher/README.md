@@ -17,9 +17,10 @@ Run the desktop viewer with
 The three force channels match `pelvis`, `left_hand_mimic`, and
 `right_hand_mimic`; force arrows show the applied load.
 
-This export is functional but its initial MuJoCo no-force smoke rollout fell at
-1.33 s. The policy was trained in Isaac Sim, so this is a sim-to-sim limitation,
-not evidence that its Isaac training rollout fell. Compare behavior cautiously.
-TorchScript actor and low-level exports match their checkpoint networks (max
-probe error 0); provenance and file hashes are in `metadata.json` and
-`SHA256SUMS.json`.
+The MuJoCo adapter concatenates the 354 proprioception values followed by the
+9 applied-force values, matching the teacher's training input order. A previous
+adapter placed force between proprioception terms and caused the robot to fall;
+that observation ordering is fixed. Headless checks now remain upright for 10 s
+without force and through a scripted 15 N hand pull. TorchScript actor and
+low-level exports match their checkpoint networks (max probe error 0);
+provenance and file hashes are in `metadata.json` and `SHA256SUMS.json`.

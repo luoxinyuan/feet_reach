@@ -223,3 +223,6 @@ python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-no-ee-teacher
 
 该 bundle 与 force-estimator student 分开保存，SHA-256、checkpoint 来源和 TorchScript
 导出误差记录在 bundle 的 `metadata.json` 与 `SHA256SUMS.json` 中。
+首次打开摔倒是 MuJoCo adapter 把 9 维外力插入了 proprioception 中间，和训练时
+`[policy, force]` 的拼接顺序不一致。修正后，MuJoCo 无外力连续运行 10 秒未摔倒；
+脚本施加 15 N 手部拉力也未摔倒，根高度最低约 0.615 m，释放后回到约 0.778 m。

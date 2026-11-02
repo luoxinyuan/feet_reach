@@ -103,7 +103,17 @@ class ResidualSimulation(Simulation):
     def observation(self):
         public=super().observation()
         q=self.data.qpos[self.qadr]
-        return np.r_[public,self.data.qvel[self.vadr],self.reference,self.reference-q,self.reference_velocity].astype(np.float32)
+        proprioception=np.r_[public[:238],self.data.qvel[self.vadr],self.reference,
+                             self.reference-q,self.reference_velocity].astype(np.float32)
+        # DenseForcePPO's teacher actor is built with in_keys
+        # ['policy', 'force_input_'], so its normalized 354-D proprioception
+        # comes first and the 9-D applied force is appended at the end.  Keep
+        # the CEER teacher input layout identical to the trained TensorDict
+        # concatenation. Other backends retain their established layout.
+        if self.backend=='ceer':
+            return np.r_[proprioception,public[238:]].astype(np.float32)
+        return np.r_[public,self.data.qvel[self.vadr],self.reference,
+                     self.reference-q,self.reference_velocity].astype(np.float32)
 
     def integrate_reference(self,raw):
         q=self.data.qpos[self.qadr];dt=self.meta['policy_dt']
@@ -134,7 +144,14 @@ class ResidualSimulation(Simulation):
 
     def ceer_inputs(self):
         rot=self.data.xmat[self.root].reshape(3,3)
-        root_velocity=rot.T@self.data.qvel[:3]
+        # MuJoCo free-joint qvel is ordered [angular, linear], whereas the
+        # Isaac asset API exposes root_lin_vel_b directly.  Use the body
+        # spatial velocity here so the CEER command receives the same local
+        # translational velocity in both simulators.
+        root_spatial_velocity=np.zeros(6)
+        mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,
+                                 self.root,root_spatial_velocity,1)
+        root_velocity=root_spatial_velocity[3:]
         command=np.r_[self.data.qpos[2],root_velocity[:2],1.,0.,self.meta['ceer_force_limit']]
         public=super().observation()
         wrists=wrist_interface(self.reference,self.meta['fk_edges'])

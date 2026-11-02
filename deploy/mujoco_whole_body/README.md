@@ -97,6 +97,7 @@ Two additional interactive bundles are available:
 - `20261028-ceer-dense23/`: the full-body 23-point residual with its causal force estimator.
 - `20261030-ceer-online-estimated-root3/`: corrected MuJoCo adapter for the online-trained 3-point residual and causal force estimator, replacing the earlier incorrect export in place.
 - `20261101-ceer-online-estimated-9pt/`: the trained 9-point online-estimated residual and causal force estimator.
+- `20261102-ceer-online-root3-no-ee-teacher/`: the 3-point GT-force teacher with EE tracking reward disabled; its MuJoCo observation ordering is corrected and verified stable.
 
 Start either browser demo with:
 
@@ -104,6 +105,7 @@ Start either browser demo with:
 python scripts/mujoco_whole_body_web.py --policy ceer-ee-root3 --port 8782
 python scripts/mujoco_whole_body_web.py --policy ceer-dense23 --port 8783
 python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --port 8784
+python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-no-ee-teacher --port 8787
 ```
 
 The 3-point student receives the three applied forces in the root-local frame.
