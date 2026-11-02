@@ -34,6 +34,14 @@ python scripts/mujoco_whole_body_web.py --policy ceer --port 8777
 
 [Residual 接口、验证结果与完整说明](scripts/references/README_mujoco_residual.md)。两版仍有无力漂移，尤其 CEER；松手归零的是外力，不保证机器人立刻停止。
 
+当前 3 点 no-EE-reward compliance 的 GT-force teacher 也可交互运行：
+
+```bash
+python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-no-ee-teacher --port 8787
+```
+
+这个 teacher 直接读取 MuJoCo 实际施加在 pelvis 和左右手的力；和估计力的 student 分开打包。
+
 ## Proactive EE tracking（PointNet）
 
 新增双脚支撑、左手 EE tracking 实验：student 输入实时 root 坐标系下的 EE target xyz、本体历史和 PointNet 编码的局部点云，保留 target joint estimator。墙位置独立随机采样，25% 场景无墙；通过 tracking、超过 500 N/s 的接触力正向上升率惩罚（不惩罚接触力绝对值）学习接近行为，不使用距离触发的减速规则。

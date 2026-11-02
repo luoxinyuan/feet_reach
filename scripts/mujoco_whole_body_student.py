@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BUNDLE = ROOT / 'deploy/mujoco_whole_body/policy'
 DEFAULT_MODEL = ROOT / 'deploy/mujoco_whole_body/g1/g1_29dof_rev_1_0.xml'
 POLICY_BUNDLES = {
+    'ceer-online-root3-no-ee-teacher': ROOT / 'deploy/mujoco_whole_body/20261102-ceer-online-root3-no-ee-teacher',
     'ceer-online-estimated-9pt': ROOT / 'deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt',
     'ceer-online-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-online-root3',
     'ceer-online-estimated-root3': ROOT / 'deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3',
@@ -348,7 +349,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-spring-root3'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-spring-root3'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)

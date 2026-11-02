@@ -207,3 +207,19 @@ force estimator 根据 10 帧本体与 low-level action 历史输出 27 维 root
 导出包在 `deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt/`。
 MuJoCo 12 秒无跌倒测试通过，但 estimator 无外力时仍估计约 12.8 N，15 N 手部拉力时
 总估计约 31.4 N；幅值校准仍有偏差，HUD 估计不是准确测力值。
+
+### 2026-11-02 root3 no-EE teacher
+
+当前 3 点在线 compliance 的 GT-force teacher 已独立导出为
+`deploy/mujoco_whole_body/20261102-ceer-online-root3-no-ee-teacher/`。它来自 W&B run
+`y3x1ilap` 的 teacher 阶段，不包含后续 student estimator；policy 直接接收 MuJoCo
+施加在 pelvis、left EE、right EE 的实际 root-local 力。该训练关闭了 EE tracking reward。
+底层使用同次训练冻结的下蹲 CEER checkpoint，而不是先前 student bundle 中的旧底层。
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy ceer-online-root3-no-ee-teacher
+python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-no-ee-teacher --port 8787
+```
+
+该 bundle 与 force-estimator student 分开保存，SHA-256、checkpoint 来源和 TorchScript
+导出误差记录在 bundle 的 `metadata.json` 与 `SHA256SUMS.json` 中。
