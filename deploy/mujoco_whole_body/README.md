@@ -98,6 +98,7 @@ Two additional interactive bundles are available:
 - `20261030-ceer-online-estimated-root3/`: corrected MuJoCo adapter for the online-trained 3-point residual and causal force estimator, replacing the earlier incorrect export in place.
 - `20261101-ceer-online-estimated-9pt/`: the trained 9-point online-estimated residual and causal force estimator.
 - `20261102-ceer-online-root3-no-ee-teacher/`: the 3-point GT-force teacher with EE tracking reward disabled; its MuJoCo observation ordering is corrected and verified stable.
+- `20261103-ceer-online-root3-crouch20-force-history/`: the 3-point GT-force teacher trained with 20% crouch data and six force-history samples (0, 1, 2, 4, 8 and 16 control steps ago).
 
 Start either browser demo with:
 
@@ -106,6 +107,7 @@ python scripts/mujoco_whole_body_web.py --policy ceer-ee-root3 --port 8782
 python scripts/mujoco_whole_body_web.py --policy ceer-dense23 --port 8783
 python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --port 8784
 python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-no-ee-teacher --port 8787
+python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-crouch20-force-history --port 8788
 ```
 
 The 3-point student receives the three applied forces in the root-local frame.
@@ -120,3 +122,8 @@ estimator at the pelvis and both EEs; it does not feed MuJoCo force ground truth
 to the actor. The original date-prefixed bundle and policy alias now contain/use
 the corrected adapter, including the frozen CEER low-level action scales and
 filters from the training checkpoint.
+
+The 20261103 crouch20 force-history teacher receives six recent samples of the
+three applied root-local forces, matching its training offsets. Unavailable
+pre-reset history is zero-filled. It uses the same force cap and crouch-trained
+frozen CEER low-level as the evaluated Isaac Sim teacher.

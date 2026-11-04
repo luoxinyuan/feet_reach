@@ -184,7 +184,7 @@ class ResidualSimulation(Simulation):
         self.age+=1
 
     def _before_torque(self):
-        if self.backend in ('ceer','jacobian','segmented','dense-estimator'):
+        if self.backend in ('ceer','ceer-force-history','jacobian','segmented','dense-estimator'):
             substep=self.steps%self.decimation
             idx=(self.delay-substep+self.decimation-1)//self.decimation
             delayed=self.low_actions[idx]
@@ -229,3 +229,43 @@ class DenseResidualSimulation(ResidualSimulation):
             raise RuntimeError('Non-finite dense force estimate')
         self.estimated_forces=estimate.reshape(len(self.points),3).copy()
         return np.concatenate((base,estimate)).astype(np.float32)
+
+
+class ForceHistorySimulation(ResidualSimulation):
+    """Three-point teacher with the six sampled force prompts used in training."""
+    def __init__(self,bundle,model_path,physics_dt=None):
+        meta=json.loads((bundle/'metadata.json').read_text())
+        if meta.get('backend')!='ceer-force-history':
+            raise ValueError('ForceHistorySimulation requires the ceer-force-history bundle.')
+        self.force_history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
+        if self.force_history_offsets!=(0,1,2,4,8,16):
+            raise ValueError(f'Unexpected force-history offsets: {self.force_history_offsets}')
+        self.force_history=np.zeros((max(self.force_history_offsets)+1,9),dtype=np.float32)
+        self.force_history_tick=-1
+        super().__init__(bundle,model_path,physics_dt)
+
+    def reset(self):
+        super().reset()
+        self.force_history[:]=0.
+        self.force_history_tick=-1
+
+    def observation(self):
+        # The teacher's TensorDict input order is the 354-D proprioception first,
+        # followed by six nine-dimensional applied-force prompts. Forces are
+        # root-local and normalized by 30 N, matching dense_force_gt_history().
+        public=Simulation.observation(self)
+        q=self.data.qpos[self.qadr]
+        proprioception=np.r_[public[:238],self.data.qvel[self.vadr],self.reference,
+                             self.reference-q,self.reference_velocity].astype(np.float32)
+        if proprioception.size!=self.meta['base_obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["base_obs_dim"]}-D proprioception, got {proprioception.size}')
+        if self.force_history_tick!=self.steps:
+            self.force_history[1:]=self.force_history[:-1].copy()
+            rot=self.data.xmat[self.root].reshape(3,3)
+            self.force_history[0]=(self.forces@rot).reshape(-1)/self.meta['force_limit']
+            self.force_history_tick=self.steps
+        sampled=self.force_history[list(self.force_history_offsets)].reshape(-1)
+        result=np.r_[proprioception,sampled].astype(np.float32)
+        if result.size!=self.meta['obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D teacher input, got {result.size}')
+        return result
