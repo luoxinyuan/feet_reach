@@ -1,0 +1,14 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3_student_no_ee_crouch20_force_history
+  - _self_
+name: G1CEERRoot3IndependentPelvisForceHistoryCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.independent_pelvis_compliance.IndependentPelvisComplianceCommand
+  match_net_force: false
+  pelvis_gain: 1190.6272466177975
+  yaw_delta_gain: 83.0
+  yaw_gate_low: 0.05
+  yaw_gate_high: 0.3
+action:
+  ceer_checkpoint: /home/xl521/feet_reach/outputs/20261101-ceer-lowlevel-crouch-student-gt-joint-target/113246/finetune/wandb/run-20261101_114716-r2e0ta3u/files/checkpoint_4500.pt

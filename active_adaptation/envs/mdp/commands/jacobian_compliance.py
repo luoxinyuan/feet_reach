@@ -8,7 +8,8 @@ from active_adaptation.utils.symmetry import SymmetryTransform
 
 class JacobianComplianceCommand(SonicComplianceCommand):
     def __init__(self, env, *args, joint_delta_gain=80., joint_feedback_gain=20.,
-                 force_penalty=1., smooth_penalty=1., resample_attempts=2, force_points=None, **kwargs):
+                 force_penalty=1., smooth_penalty=1., resample_attempts=2,
+                 force_points=None, match_net_force=True, **kwargs):
         super().__init__(env, *args, **kwargs)
         if force_points is not None:
             # This allocator applies forces at link origins. Reject offsets rather
@@ -28,11 +29,16 @@ class JacobianComplianceCommand(SonicComplianceCommand):
         self.force_penalty = force_penalty
         self.smooth_penalty = smooth_penalty
         self.resample_attempts = resample_attempts
+        self.match_net_force = bool(match_net_force)
         self.generalized_target = torch.zeros(self.num_envs, 6 + self.asset.num_joints, device=self.device)
         # Dimensionless objective: normalize moments by a 0.3 m characteristic arm.
         # Match old root allocation's weight 4; joint moments use weight 1.
         self.prompt_weights = torch.full((6 + self.asset.num_joints,), 1. / .3, device=self.device)
-        self.prompt_weights[:3] = 2.
+        if self.match_net_force:
+            self.prompt_weights[:3] = 2.
+        else:
+            # Keep only external moment, joint-motion and regularization terms.
+            self.prompt_weights[:3] = 0.
         self.prompt_weights[3:6] = 2. / .3
 
     def upper_body_forces_b_sym(self):
@@ -50,7 +56,8 @@ class JacobianComplianceCommand(SonicComplianceCommand):
         self.generalized_target[:, 6 + self.all_joint_idx_asset] = (
             self.joint_delta_gain * (q1 - q0) + self.joint_feedback_gain * (q0 - actual))
         fd, td = self._intent()
-        self.generalized_target[:, :3] = fd
+        if self.match_net_force:
+            self.generalized_target[:, :3] = fd
         self.generalized_target[:, 5] = td
         raw = self.asset.root_physx_view.get_jacobians()
         if raw.shape[1:] != (self.asset.num_bodies, 6, 6 + self.asset.num_joints):
@@ -76,7 +83,8 @@ class JacobianComplianceCommand(SonicComplianceCommand):
         arms = (self.asset.data.body_pos_w[rows[:, None], self.point_ids[chosen]]
                 - self.asset.data.root_pos_w[rows, None])
         fd, td = self._intent()
-        force = limit_force(consistent_force(force, arms, fd[rows], td[rows], active[rows]))
+        force = limit_force(consistent_force(force, arms, fd[rows], td[rows], active[rows],
+                                             match_net_force=self.match_net_force))
         error = reconstruction(jac, force, self.generalized_target[rows], self.prompt_weights)[2]
         return force, error
 

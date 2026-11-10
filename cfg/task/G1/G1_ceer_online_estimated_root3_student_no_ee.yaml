@@ -1,0 +1,8 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3
+  - _self_
+name: G1CEEROnlineEstimatedRoot3StudentNoEECompliance
+reward:
+  tracking:
+    ee_tracking: {weight: 0.0, enabled: false}

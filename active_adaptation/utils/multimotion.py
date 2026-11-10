@@ -1,4 +1,7 @@
 import torch
+import json
+import os
+from pathlib import Path
 from typing import List
 
 from active_adaptation.utils.math import wrap_to_pi  # noqa: F401
@@ -20,7 +23,8 @@ class ProgressiveMultiMotionDataset:
                  position_z_offset: float = 0.035,
                  clamp_joint_targets: bool = True,
                  buffer_float_dtype: str = "float16",
-                 resample_on_reset: bool = False):
+                 resample_on_reset: bool = False,
+                 motion_allowlists: List[str | None] | None = None):
         self.device = device
         self.ds_device = ds_device
         self.env_size = env_size
@@ -45,6 +49,45 @@ class ProgressiveMultiMotionDataset:
             for p in mem_paths
         ]
         assert len(self.datasets) == len(path_weights)
+        if motion_allowlists is None:
+            motion_allowlists = [None] * len(mem_paths)
+        if len(motion_allowlists) != len(mem_paths):
+            raise ValueError("motion_allowlists must have one entry per mem_path")
+
+        path_root = Path(os.environ.get("MEMPATH", Path(__file__).resolve().parents[2] / "dataset"))
+        self.allowed_motion_ids = []
+        for i, (mem_path, allowlist_path, ds) in enumerate(zip(mem_paths, motion_allowlists, self.datasets)):
+            if allowlist_path is None:
+                allowed = torch.arange(ds.num_motions, dtype=torch.long, device=ds_device)
+            else:
+                allow_path = Path(allowlist_path)
+                if not allow_path.is_absolute():
+                    allow_path = path_root / allow_path
+                payload = json.loads(allow_path.read_text())
+                indices = payload.get("allowlist")
+                if not isinstance(indices, list) or not indices:
+                    raise ValueError(f"Allowlist must contain a non-empty 'allowlist' array: {allow_path}")
+                allowed = torch.as_tensor(indices, dtype=torch.long, device=ds_device)
+                if (allowed < 0).any() or (allowed >= ds.num_motions).any():
+                    raise ValueError(f"Allowlist index outside [0, {ds.num_motions}): {allow_path}")
+                if torch.unique(allowed).numel() != allowed.numel():
+                    raise ValueError(f"Allowlist contains duplicate trajectory indices: {allow_path}")
+
+                source_path = payload.get("source_path")
+                dataset_path = Path(mem_path)
+                if not dataset_path.is_absolute():
+                    dataset_path = path_root / dataset_path
+                if source_path and Path(source_path).resolve() != dataset_path.resolve():
+                    raise ValueError(
+                        f"Allowlist source does not match mem_path[{i}]: "
+                        f"{Path(source_path).resolve()} != {dataset_path.resolve()}"
+                    )
+                print(
+                    f"[ProgressiveMultiMotionDataset] {mem_path}: "
+                    f"using allowlist {allow_path} ({allowed.numel()}/{ds.num_motions} trajectories)",
+                    flush=True,
+                )
+            self.allowed_motion_ids.append(allowed)
 
         body0, joint0 = self.datasets[0].body_names, self.datasets[0].joint_names
         for ds in self.datasets[1:]:
@@ -54,7 +97,7 @@ class ProgressiveMultiMotionDataset:
 
         w = torch.tensor(path_weights, dtype=torch.double)
         self.probs = (w / w.sum()).float().to(device)
-        self.counts = [ds.num_motions for ds in self.datasets]
+        self.counts = [len(ids) for ids in self.allowed_motion_ids]
 
         self._buf_A = self._allocate_empty_buffer()
         self._len_A = torch.zeros(env_size, dtype=torch.int32, device=device)
@@ -89,7 +132,8 @@ class ProgressiveMultiMotionDataset:
                 for pi,ds in enumerate(self.datasets):
                     selected=ids[choices==pi]
                     if not len(selected):continue
-                    mids=torch.randint(ds.num_motions,(len(selected),),device=self.ds_device)
+                    allowed=self.allowed_motion_ids[pi]
+                    mids=allowed[torch.randint(len(allowed),(len(selected),),device=self.ds_device)]
                     idx=ds.starts[mids,None].long()+torch.arange(self.max_step_size,device=self.ds_device)
                     idx=torch.minimum(idx,(ds.ends[mids]-1)[:,None])
                     self._buf_A[selected]=self._to_float(ds.data[idx].to(self.device),dtype=self.buffer_float_dtype)
@@ -209,10 +253,13 @@ class ProgressiveMultiMotionDataset:
             mask = (path_samples == pi)
             if not mask.any():
                 continue
-            cnt = self.counts[pi]
-            mids = (torch.rand(mask.sum(), device=self.ds_device) * cnt).floor().to(torch.int32)
+            allowed = self.allowed_motion_ids[pi]
+            selected_ids = torch.randint(len(allowed), (int(mask.sum()),), device=self.ds_device)
+            mids = allowed[selected_ids].to(torch.int32)
             
             if self.fix_motion_id is not None:
+                if not bool((allowed == self.fix_motion_id).any()):
+                    raise ValueError(f"fix_motion_id {self.fix_motion_id} is not in dataset {pi}'s allowlist")
                 mids[:] = self.fix_motion_id
 
             mids_long = mids.to(torch.long)

@@ -4,25 +4,38 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 os.environ.setdefault('ACTIVE_ADAPTATION_DISABLE_TORCH_COMPILE','1');os.environ.setdefault('MEMPATH',str(ROOT/'dataset'))
 import numpy as np
-p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--video-group',choices=['left','right','body','turn','sequence']);p.add_argument('--metrics-pass',choices=['forced','zero']);p.add_argument('--repeats',type=int,default=8);p.add_argument('--video-force',type=float,default=10.);p.add_argument('--basic-only',action='store_true');p.add_argument('--sequence-gap',type=float,default=2.);p.add_argument('--sequence-ee-force',type=float,default=5.);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
+p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--video-group',choices=['left','right','body','turn','sequence']);p.add_argument('--direction',choices=['forward','backward','left','right','down']);p.add_argument('--metrics-pass',choices=['forced','zero']);p.add_argument('--repeats',type=int,default=8);p.add_argument('--video-force',type=float,default=10.);p.add_argument('--root3',action='store_true',help='Apply body load at pelvis and turning couples at hands, matching root3 force inputs');p.add_argument('--basic-only',action='store_true');p.add_argument('--sequence-gap',type=float,default=2.);p.add_argument('--sequence-ee-force',type=float,default=5.);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
 if not a.video_group and not a.metrics_pass:p.error('Use separate fresh processes with --metrics-pass forced and --metrics-pass zero')
 import torch
 from omegaconf import OmegaConf
 import active_adaptation.learning
 from isaaclab.app import AppLauncher
-DIRECTIONS={'forward':[1.,0.,0.],'backward':[-1.,0.,0.],'left':[0.,1.,0.],'right':[0.,-1.,0.]}
+DIRECTIONS={'forward':[1.,0.,0.],'backward':[-1.,0.,0.],'left':[0.,1.,0.],'right':[0.,-1.,0.],'down':[0.,0.,-1.]}
 CASES=[dict(name=g+'_'+d,group=g,direction=d,body=b,vector=v,turn=0) for g,b in [('left','left_hand_mimic'),('right','right_hand_mimic'),('body','torso_link')] for d,v in DIRECTIONS.items()]
 CASES += [dict(name='turn_'+d,group='turn',direction=d,body='left_shoulder_roll_link',vector=[0.,0.,0.],turn=s) for d,s in [('left',1),('right',-1)]]
 CASES += [dict(name='shoulder_then_ee',group='sequence',direction='left',body='left_shoulder_roll_link',vector=[0.,0.,0.],turn=2)]
+if a.root3:
+ for c in CASES:
+  if c['body']=='torso_link':c['body']='pelvis'
+  elif c['body']=='left_shoulder_roll_link':c['body']='left_hand_mimic'
 if a.basic_only:CASES=[c for c in CASES if c['group']!='sequence']
 if a.video_group:
- cases=[x for x in CASES if x['group']==a.video_group];rows=[dict(c,force_N=a.video_force,repeat=0) for c in cases];n=1
+ cases=[x for x in CASES if x['group']==a.video_group and (a.direction is None or x['direction']==a.direction)];rows=[dict(c,force_N=a.video_force,repeat=0) for c in cases];n=1
 else:
  rows=[dict(c,force_N=f,repeat=r) for c in CASES for f in [5.,10.,20.] for r in range(a.repeats)];n=len(rows)
 state=torch.load(a.checkpoint,map_location='cpu',weights_only=False);cfg=OmegaConf.create(OmegaConf.to_container(state['cfg'],resolve=True));OmegaConf.set_struct(cfg,False)
-assert cfg.task.command._target_.split('.')[-1] in ('JacobianComplianceCommand','SegmentedJacobianComplianceCommand','AMPComplianceCommand')
+saved_joint_target_dim = None
+try:
+ saved_joint_target_dim = int(state['vecnorm']['_extra_state']['joint_target_sum'].numel())
+except (KeyError, TypeError, AttributeError):
+ pass
+command_name=cfg.task.command._target_.split('.')[-1]
+teacher_mode=cfg.algo.get('phase')=='teacher'
+assert command_name in ('JacobianComplianceCommand','SegmentedJacobianComplianceCommand','AMPComplianceCommand','DirectKeypointSpringCommand','OnlineEstimatedComplianceCommand')
 cfg.checkpoint_path=str(a.checkpoint);cfg.vecnorm='eval';cfg.task.num_envs=n;cfg.seed=42;cfg.wandb.mode='disabled';cfg.eval_render=bool(a.video_group);cfg.headless=True
-cfg.task.command.guidance_enabled=False;cfg.task.command.dataset.mem_paths=['passive_whole_body_full/val'];cfg.task.reward={};cfg.task.termination={};cfg.task.max_episode_length=2000;cfg.task.observe_on_reset=True;cfg.task.viewer.resolution=[1280,720]
+cfg.task.command.guidance_enabled=False
+if command_name!='OnlineEstimatedComplianceCommand':cfg.task.command.dataset.mem_paths=['passive_whole_body_full/val']
+cfg.task.reward={};cfg.task.termination={};cfg.task.max_episode_length=2000;cfg.task.observe_on_reset=True;cfg.task.viewer.resolution=[1280,720]
 if 'guidance_cache' in cfg.task.command:cfg.task.command.guidance_cache=str(ROOT/'artifacts/ceer_segmented_jacobian/val18')
 del state
 app=AppLauncher(headless=True,device='cuda:0',enable_cameras=bool(a.video_group),kit_args='--/plugins/carb.tasking.plugin/threadCount=16 --/plugins/omni.tbb.globalcontrol/maxThreadCount=16').app
@@ -31,6 +44,14 @@ try:
  from torchrl.envs.utils import set_exploration_type,ExplorationType
  from active_adaptation.utils.body_guidance import slew_force
  from active_adaptation.utils.simple_locomotion_guidance import yaw_from_quat
+ if command_name=='OnlineEstimatedComplianceCommand' and saved_joint_target_dim==29:
+  # Older root3 teacher checkpoints normalize one 29-joint target frame.
+  # The current command also supports five-frame CEER targets (145 dims), so
+  # restore the historical observation only inside this evaluation process.
+  from active_adaptation.envs.mdp.commands.online_estimated_compliance import OnlineEstimatedComplianceCommand
+  from active_adaptation.envs.mdp.commands.foot_reach import WallFootReachCommand
+  OnlineEstimatedComplianceCommand.target_joint_pos_obs=WallFootReachCommand.target_joint_pos_obs
+  OnlineEstimatedComplianceCommand.target_joint_pos_obs_sym=WallFootReachCommand.target_joint_pos_obs_sym
  torch.manual_seed(42);np.random.seed(42)
  env,agent,_,_=make_env_policy(cfg);env.eval();env.base_env.eval();agent.eval();cmd=env.command_manager;robot=cmd.asset;manager=env.action_manager;device=env.device
  original=cmd.reset
@@ -44,9 +65,12 @@ try:
   torch.manual_seed(4242)
  callbacks=env.base_env._reset_callbacks;callbacks[:]=[reset_standing if cb==original else cb for cb in callbacks];assert reset_standing in callbacks
  # Freeze dataset progression; it supplies neither prompts, rewards nor actor targets.
- cmd.before_update=lambda:None;cmd.update=lambda:None
+ # Keep the frozen reference motion fixed. Estimated-root3 still needs a fresh
+ # causal proprioception history tick for its force estimator each control step.
+ cmd.before_update=(lambda: setattr(cmd,'log_step',cmd.log_step+1)) if command_name=='OnlineEstimatedComplianceCommand' else (lambda:None)
+ cmd.update=lambda:None
  applied=torch.zeros(n,2,3,device=device);clock_step=0;force_enabled=True
- left=robot.body_names.index('left_shoulder_roll_link');right=robot.body_names.index('right_shoulder_roll_link')
+ left=robot.body_names.index('left_hand_mimic' if a.root3 else 'left_shoulder_roll_link');right=robot.body_names.index('right_hand_mimic' if a.root3 else 'right_shoulder_roll_link')
  left_ee=robot.body_names.index('left_hand_mimic');right_ee=robot.body_names.index('right_hand_mimic')
  indices=torch.arange(n,device=device)[:,None]
  def configure(trials):
@@ -81,7 +105,7 @@ try:
    body_ids[sequence,0]=pair_left[sequence];body_ids[sequence,1]=pair_right[sequence]
   applied.copy_(slew_force(applied,desired,env.physics_dt));cmd.force_apply_buffer.zero_();cmd.torque_apply_buffer.zero_()
   cmd.force_apply_buffer.scatter_add_(1,body_ids[...,None].expand_as(applied),applied)
-  if hasattr(cmd,'point_force_buffer'):
+  if hasattr(cmd,'point_force_buffer') and hasattr(cmd,'point_offsets'):
    # Public force features must receive the same forces as the simulator.
    # All scripted loads are at link origins, not offset candidates on that link.
    cmd.point_force_buffer.zero_()
@@ -90,7 +114,9 @@ try:
      cmd.point_force_buffer[:,pi]=((body_ids==bid)[...,None]*applied).sum(1)
   cmd.position_apply_buffer.copy_(robot.data.body_pos_w);robot.has_external_wrench=False
  original_step=cmd.step;callbacks=env.base_env._pre_step_callbacks;callbacks[:]=[external_force if cb==original_step else cb for cb in callbacks];assert external_force in callbacks
- policy=agent.get_rollout_policy('deploy');assert list(policy.in_keys)==['policy']
+ policy=agent.get_rollout_policy('deploy')
+ expected_keys=(['force_gt_','policy'] if teacher_mode else ['estimator_history_','policy']) if command_name=='OnlineEstimatedComplianceCommand' else ['policy']
+ assert list(policy.in_keys)==expected_keys,(list(policy.in_keys),expected_keys)
  video_writer=None
  if a.video_group:
   import omni.usd
@@ -123,18 +149,29 @@ try:
   initial_public=td['policy'].detach().cpu().numpy().copy()
   initial_alpha=manager.low_action_manager.alpha.detach().cpu().numpy().copy()
   initial_delay=manager.low_action_manager.delay.detach().cpu().numpy().copy()
-  data={k:[] for k in ['root','point','yaw','height','tilt','force','net_force','yaw_moment','hands_b','joint_pos']};first_fall=torch.full((n,),float('nan'),device=device)
+  data={k:[] for k in ['root','root_vel','point','yaw','height','tilt','force','estimated_force','net_force','yaw_moment','hands_b','joint_pos']};first_fall=torch.full((n,),float('nan'),device=device)
   total_steps=(round((8.+a.sequence_gap+2.)/env.step_dt)+1) if trials[0]['group']=='sequence' else 501
   with torch.no_grad(),set_exploration_type(ExplorationType.MODE):
    for step in range(total_steps):
-    if step:
-     clock_step=step-1;td=policy(td);td=env.step(td)['next']
+    estimated_force=torch.zeros(n,3,3,device=device)
+    clock_step=step;td=policy(td)
+    if command_name=='OnlineEstimatedComplianceCommand':
+     force_feature=td['force_gt_'] if teacher_mode else td['force_input_']
+     # Force-history tasks concatenate [current, t-1, t-2, t-4, t-8, t-16].
+     # For per-frame visualization, report the current 3-point sample only;
+     # the actor still receives the complete history tensor above.
+     force_feature=force_feature.reshape(n,-1,3,3)[:,0]
+     estimated_force.copy_(force_feature*30.)
+    td=env.step(td)['next']
     root=robot.data.root_pos_w-env.scene.env_origins;points=robot.data.body_pos_w[torch.arange(n,device=device),body_ids[:,0]]-env.scene.env_origins
     yaw=yaw_from_quat(robot.data.root_quat_w);height=root[:,2];tilt=torch.acos((-robot.data.projected_gravity_b[:,2]).clamp(-1,1))
     fall=(height<.45)|(tilt>torch.pi/3);first_fall=torch.where(torch.isnan(first_fall)&fall,torch.full_like(first_fall,step*env.step_dt),first_fall)
     forces=cmd.force_apply_buffer;moment=torch.cross(robot.data.body_pos_w-robot.data.root_pos_w[:,None],forces,dim=-1).sum(1)[:,2]
     assert torch.isfinite(root).all() and torch.isfinite(manager.low_action).all()
-    assert applied.norm(dim=-1).max()<=20.001
+    # The trained root3 prompt is normalized by 30 N per point; allow testing
+    # its full per-point force range while keeping the sequence below the
+    # configured 60 N aggregate budget.
+    assert applied.norm(dim=-1).max()<=30.001
     if (turns!=0).any():assert forces.sum(1)[turns!=0].abs().max()<1e-5
     assert (forces.norm(dim=-1)>1e-5).sum(-1).max()<=2
     if not enabled:assert forces.count_nonzero()==0
@@ -142,7 +179,7 @@ try:
     hands_b=quat_apply_inverse(robot.data.root_quat_w[:,None].expand(-1,2,-1),robot.data.body_pos_w[:,[left_ee,right_ee]]-robot.data.root_pos_w[:,None])
     if hasattr(cmd,'point_force_buffer'):
      torch.testing.assert_close(cmd.point_force_buffer.sum(1),forces.sum(1),atol=1e-5,rtol=1e-5)
-    for k,val in dict(root=root,point=points,yaw=yaw,height=height,tilt=tilt,force=applied,net_force=forces.sum(1),yaw_moment=moment,hands_b=hands_b,joint_pos=robot.data.joint_pos).items():data[k].append(val.cpu().numpy().copy())
+    for k,val in dict(root=root,root_vel=robot.data.root_lin_vel_w,point=points,yaw=yaw,height=height,tilt=tilt,force=applied,estimated_force=estimated_force,net_force=forces.sum(1),yaw_moment=moment,hands_b=hands_b,joint_pos=robot.data.joint_pos).items():data[k].append(val.cpu().numpy().copy())
     if video_writer is not None and step%2==0:
      pos=robot.data.body_pos_w[0,body_ids[0]].cpu().numpy();f=applied[0].cpu().numpy()
      for i in range(2):arrow(i,pos[i],f[i])
@@ -156,15 +193,16 @@ try:
      c=trials[0];phase='NO FORCE / INITIAL' if step<100 else 'FORCE PROMPT' if step<300 else 'RELEASED / NO FORCE'
      phase_elapsed=step*env.step_dt
      if c['group']=='sequence':phase='SHOULDER FORCE COUPLE' if 2.0<=phase_elapsed<5.0 else 'EE FORCE COUPLE' if 5.+a.sequence_gap<=phase_elapsed<8.+a.sequence_gap else 'NO FORCE / INITIAL' if phase_elapsed<2 else 'WAIT / NO FORCE' if phase_elapsed<5.+a.sequence_gap else 'RELEASE / NO FORCE'
-     draw.text((15,10),f'{"AMP + DENSE POLICY" if cfg.task.command._target_.endswith("AMPComplianceCommand") else "JACOBIAN POLICY"} | {c["name"].upper()} | trial {trial_index+1}/{len(rows)} | {phase_elapsed:.2f}/{(total_steps-1)*env.step_dt:.2f} s',font=font,fill='white')
+     policy_label=("ROOT3 TEACHER POLICY" if teacher_mode else "ONLINE ESTIMATED ROOT3 POLICY") if command_name=='OnlineEstimatedComplianceCommand' else "AMP + DENSE POLICY" if cfg.task.command._target_.endswith("AMPComplianceCommand") else "DIRECT SPRING POLICY" if cfg.task.command._target_.endswith("DirectKeypointSpringCommand") else "JACOBIAN POLICY"
+     draw.text((15,10),f'{policy_label} | {c["name"].upper()} | trial {trial_index+1}/{len(rows)} | {phase_elapsed:.2f}/{(total_steps-1)*env.step_dt:.2f} s',font=font,fill='white')
      force_text=f'shoulders {c["force_N"]:.0f} N/point; EE {a.sequence_ee_force:.1f} N/point' if c['group']=='sequence' else f'{c["force_N"]:.0f} N per point peak'
      draw.text((15,39),f'{phase} | {force_text} | arrows = actual forces (4.5 cm/N)',font=small,fill=(255,210,100))
      delta=data['root'][-1][0]-data['root'][0][0];yaw_delta=np.unwrap(np.array(data['yaw'])[:,0])[-1]-data['yaw'][0][0]
      draw.text((15,65),f'root displacement: X {delta[0]:+.2f} m, Y {delta[1]:+.2f} m | yaw {np.degrees(yaw_delta):+.1f} deg | height {height[0]:.2f} m',font=small,fill='white')
-     draw.text((15,91),'Independent standing reset per trial | +X forward, +Y left at start | no motion target | cyan = actual path',font=small,fill=(110,230,255))
+     draw.text((15,91),'Independent standing reset per trial | +X forward, +Y left at start | no motion target | cyan = policy force input',font=small,fill=(110,230,255))
      force_label=' | '.join(f'{robot.body_names[int(body_ids[0,i])]}: {np.linalg.norm(f[i]):.1f} N' for i in range(2 if c['turn'] else 1))
      draw.text((15,117),force_label,font=small,fill='white')
-     if torch.isfinite(first_fall[0]):draw.text((15,680),f'PHYSICAL FALL at {first_fall[0]:.2f}s; continued without reset',font=small,fill=(255,90,90))
+     if torch.isfinite(first_fall[0]):draw.text((15,680),f'EVAL THRESHOLD (root z < 0.45 m or tilt > 60 deg) at {first_fall[0]:.2f}s',font=small,fill=(255,90,90))
      video_writer.append_data(np.asarray(image))
      if step in [100,250,300,500]:image.save(a.output/f'{c["name"]}_{step:04d}.png')
   data={k:np.stack(v) for k,v in data.items()};data['first_fall_s']=first_fall.cpu().numpy();data['initial_sha256']=initial;data['initial_public']=initial_public;data['initial_alpha']=initial_alpha;data['initial_delay']=initial_delay;data['joint_names']=np.array(robot.joint_names);return data
@@ -173,10 +211,10 @@ try:
   for i,row in enumerate(rows):
    data=rollout([row],True,i);np.savez_compressed(a.output/(row['name']+'.npz'),**data);summaries.append(dict(row,first_fall_s=float(data['first_fall_s'][0]) if np.isfinite(data['first_fall_s'][0]) else None,initial_sha256=data['initial_sha256']))
    print('VIDEO_TRIAL_DONE',row['name'],flush=True)
-  video_writer.close();sequence_steps=round((8.+a.sequence_gap+2.)/env.step_dt)+1;report={'group':a.video_group,'trials':summaries,'seconds':sum(((sequence_steps-1)*env.step_dt if r['group']=='sequence' else 500*env.step_dt) for r in rows),'fps':25,'frames':sum((sequence_steps//2+1 if r['group']=='sequence' else 251) for r in rows),'checkpoint':str(a.checkpoint),'sequence_gap_s':a.sequence_gap if a.video_group=='sequence' else None,'sequence_ee_force_N':a.sequence_ee_force if a.video_group=='sequence' else None}
+  video_writer.close();sequence_steps=round((8.+a.sequence_gap+2.)/env.step_dt)+1;report={'group':a.video_group,'phase':'teacher' if teacher_mode else 'student','trials':summaries,'seconds':sum(((sequence_steps-1)*env.step_dt if r['group']=='sequence' else 500*env.step_dt) for r in rows),'fps':25,'frames':sum((sequence_steps//2+1 if r['group']=='sequence' else 251) for r in rows),'checkpoint':str(a.checkpoint),'sequence_gap_s':a.sequence_gap if a.video_group=='sequence' else None,'sequence_ee_force_N':a.sequence_ee_force if a.video_group=='sequence' else None}
  elif a.metrics_pass:
   data=rollout(rows,a.metrics_pass=='forced');np.savez_compressed(a.output/(a.metrics_pass+'.npz'),**data)
-  report={'pass':a.metrics_pass,'rows':rows,'checkpoint':str(a.checkpoint),'seed':42,'repeats_per_case_and_force':a.repeats,'initial_sha256':data['initial_sha256']}
+  report={'pass':a.metrics_pass,'rows':rows,'checkpoint':str(a.checkpoint),'seed':42,'root3':a.root3,'repeats_per_case_and_force':a.repeats,'initial_sha256':data['initial_sha256']}
  else:
   forced=rollout(rows,True);print('FORCED_ROLLOUT_DONE',flush=True);zero=rollout(rows,False);assert forced['initial_sha256']==zero['initial_sha256']
   for key in ['initial_public','initial_alpha','initial_delay']:np.testing.assert_array_equal(forced[key],zero[key])

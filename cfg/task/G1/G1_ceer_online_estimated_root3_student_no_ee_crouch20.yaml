@@ -1,0 +1,9 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3_student_no_ee_crouch
+  - _self_
+name: G1CEEROnlineEstimatedRoot3StudentNoEECrouch20Compliance
+command:
+  dataset:
+    # Dataset sampler normalizes these weights: crouch clips are sampled 20% of resets.
+    path_weights: [0.8, 0.2]

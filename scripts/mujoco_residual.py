@@ -74,7 +74,7 @@ class ResidualSimulation(Simulation):
             self.model.geom_contype[colliders]=2
             self.model.geom_conaffinity[colliders]=1
             mujoco.mj_forward(self.model,self.data)
-        if self.backend=='sonic':
+        if self.backend in ('sonic','sonic-force-history'):
             import onnxruntime as ort
             paths=sonic_models(bundle)
             options=ort.SessionOptions();options.intra_op_num_threads=1;options.inter_op_num_threads=1
@@ -168,7 +168,7 @@ class ResidualSimulation(Simulation):
         if not np.isfinite(raw).all():raise RuntimeError('Non-finite residual action')
         self.last_action=raw.copy();self.actions[1:]=self.actions[:-1].copy();self.actions[0]=raw
         self.integrate_reference(raw)
-        if self.backend=='sonic':
+        if self.backend in ('sonic','sonic-force-history'):
             encoder,prop=self.sonic_inputs();token=self.encoder.run(None,{self.encoder.get_inputs()[0].name:encoder})[0]
             inp=np.concatenate((token,prop),axis=-1)
             self.low_action=self.decoder.run(None,{self.decoder.get_inputs()[0].name:inp})[0][0]
@@ -268,4 +268,46 @@ class ForceHistorySimulation(ResidualSimulation):
         result=np.r_[proprioception,sampled].astype(np.float32)
         if result.size!=self.meta['obs_dim']:
             raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D teacher input, got {result.size}')
+        return result
+
+
+class SonicForceHistorySimulation(ResidualSimulation):
+    """SONIC low-level controller with the trained causal 3-point force prompt."""
+    def __init__(self,bundle,model_path,physics_dt=None):
+        meta=json.loads((bundle/'metadata.json').read_text())
+        if meta.get('backend')!='sonic-force-history':
+            raise ValueError('SonicForceHistorySimulation requires the sonic-force-history bundle.')
+        self.force_history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
+        if self.force_history_offsets!=(0,1,2,4,8,16):
+            raise ValueError(f'Unexpected force-history offsets: {self.force_history_offsets}')
+        self.force_history=np.zeros((max(self.force_history_offsets)+1,9),dtype=np.float32)
+        self.force_history_tick=-1
+        super().__init__(bundle,model_path,physics_dt)
+
+    def reset(self):
+        super().reset()
+        self.force_history[:]=0.
+        self.force_history_tick=-1
+
+    def observation(self):
+        # Match the trained task's ordered 354-D observation, then append the
+        # unnormalized 54-D root-local force history used by the teacher actor.
+        rot=self.data.xmat[self.root].reshape(3,3)
+        velocity=np.zeros(6)
+        mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,
+                                 self.root,velocity,1)
+        policy_obs=np.r_[velocity[:3],rot.T@np.array([0.,0.,-1.]),
+                         self.history.ravel(),self.actions.ravel(),
+                         self.data.qvel[self.vadr],self.reference,
+                         self.reference-self.data.qpos[self.qadr],self.reference_velocity].astype(np.float32)
+        if policy_obs.size!=self.meta['base_obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["base_obs_dim"]}-D policy observation, got {policy_obs.size}')
+        if self.force_history_tick!=self.steps:
+            self.force_history[1:]=self.force_history[:-1].copy()
+            self.force_history[0]=(self.forces@rot).reshape(-1)/self.meta['force_limit']
+            self.force_history_tick=self.steps
+        sampled=self.force_history[list(self.force_history_offsets)].reshape(-1)
+        result=np.r_[policy_obs,sampled].astype(np.float32)
+        if result.size!=self.meta['obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D actor input, got {result.size}')
         return result

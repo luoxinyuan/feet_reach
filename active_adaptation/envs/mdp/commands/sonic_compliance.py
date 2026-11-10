@@ -8,7 +8,8 @@ class SonicComplianceCommand(PassiveWholeBodyCommand):
     def __init__(self, env, *args, **kwargs):
         allowed = {'root_ang_vel_history', 'projected_gravity_history',
                    'joint_pos_history', 'prev_actions', 'upper_body_forces_b',
-                   'sonic_reference', 'sonic_joint_velocity'}
+                   'sonic_reference', 'sonic_joint_velocity',
+                   'boot_indicator_state', 'command', 'root_and_wrist_6d'}
         enabled = {key for key, value in env.cfg.observation.policy.items()
                    if not key.startswith('_') and (value is None or value.get('enabled', True))}
         if enabled - allowed:

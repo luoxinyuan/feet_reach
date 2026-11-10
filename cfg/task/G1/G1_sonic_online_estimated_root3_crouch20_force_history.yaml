@@ -1,0 +1,23 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3_student_no_ee_crouch20_force_history
+  - _self_
+
+name: G1SonicOnlineEstimatedRoot3Crouch20ForceHistoryCompliance
+
+# Preserve the root3 online Jacobian force command and force-history training
+# setup. Only replace the low-level robot/action backend with frozen SONIC.
+robot:
+  name: g1_sonic
+
+action:
+  _target_: active_adaptation.envs.mdp.sonic_residual.SonicResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+
+# The actor's output remains a 29-DOF joint-reference residual. These two
+# terms are the causal SONIC reference/state inputs consumed by its adapter.
+observation:
+  policy:
+    sonic_joint_velocity: {}
+    sonic_reference: {}

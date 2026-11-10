@@ -9,8 +9,11 @@ export MEMPATH="${MEMPATH:-$PWD/dataset}" OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}
 export ACTIVE_ADAPTATION_DISABLE_TORCH_COMPILE=1 PYTHONUNBUFFERED=1
 python_bin="${PYTHON_BIN:-/home/xl521/software/miniconda3/envs/gentle/bin/python}"
 checkpoint="${CHECKPOINT:-null}"
+lowlevel_checkpoint="${LOWLEVEL_CHECKPOINT:-$PWD/.cache/ceer/checkpoint_final.pt}"
 if [[ "$phase" != teacher && "$checkpoint" == null ]]; then echo "$phase requires CHECKPOINT from the preceding stage" >&2; exit 2; fi
 if [[ "$checkpoint" != null ]]; then checkpoint="$(realpath "$checkpoint")"; test -f "$checkpoint"; fi
+lowlevel_checkpoint="$(realpath "$lowlevel_checkpoint")"
+test -f "$lowlevel_checkpoint"
 norm=train; default_frames=4000000000
 if [[ "$phase" != teacher ]]; then norm=eval; fi
 if [[ "$phase" == distill ]]; then default_frames=1000000000; fi
@@ -20,11 +23,12 @@ wandb_project="${WANDB_PROJECT:-ceer-online-estimated-root3-compliance}"
 run_prefix="${RUN_PREFIX:-online-root3}"
 if [[ -f "$output/train.log" ]]; then echo "Output already used: $output; choose a fresh OUTPUT_DIR (and CHECKPOINT to resume)" >&2; exit 2; fi
 mkdir -p "$output"
-sha256sum .cache/ceer/checkpoint_final.pt > "$output/frozen_ceer.sha256"
+sha256sum "$lowlevel_checkpoint" > "$output/frozen_lowlevel.sha256"
 IFS=',' read -r -a gpus <<< "$CUDA_VISIBLE_DEVICES"
 "$python_bin" -m torch.distributed.run --standalone --nproc_per_node="${#gpus[@]}" scripts/train.py \
  "task=$task_name" algo=ceer_dense_force "algo.phase=$phase" \
  "task.num_envs=${NUM_ENVS:-2048}" "total_frames=${TOTAL_FRAMES:-$default_frames}" \
+ "task.action.ceer_checkpoint=$lowlevel_checkpoint" \
  "checkpoint_path=$checkpoint" "vecnorm=$norm" save_interval=50 \
  "wandb.mode=${WANDB_MODE:-online}" "wandb.project=$wandb_project" \
  "wandb.run_name=$run_prefix-$phase-$(basename "$(dirname "$output")")" \

@@ -555,6 +555,10 @@ class RootStudentPPOPolicy(TensorDictModuleBase):
             adapt_module=adapt_module.state_dict(),
             critic=critic.state_dict(),
             last_phase=self.cfg.phase,
+            optimizer_teacher=self.opt_teacher.state_dict(),
+            optimizer_student=self.opt_student.state_dict(),
+            optimizer_estimator=self.opt_estimator.state_dict(),
+            optimizer_critic=self.opt_critic.state_dict(),
             _meta={
                 "current_lr": self.current_lr,
                 "entropy_coef": self.entropy_coef,
@@ -565,6 +569,8 @@ class RootStudentPPOPolicy(TensorDictModuleBase):
         )
         if adapt_direct_module is not None:
             state["adapt_direct_module"] = adapt_direct_module.state_dict()
+        if self.opt_direct_estimator is not None:
+            state["optimizer_direct_estimator"] = self.opt_direct_estimator.state_dict()
         return state
 
     def load_state_dict(self, state_dict, strict=True):
@@ -596,6 +602,18 @@ class RootStudentPPOPolicy(TensorDictModuleBase):
             self.reg_lambda = meta.get("reg_lambda", self.reg_lambda)
             self.progress = meta.get("progress", self.progress)
             self.num_updates = meta.get("num_updates", self.num_updates)
+            optimizer_states = (
+                ("optimizer_teacher", self.opt_teacher),
+                ("optimizer_student", self.opt_student),
+                ("optimizer_estimator", self.opt_estimator),
+                ("optimizer_critic", self.opt_critic),
+                ("optimizer_direct_estimator", self.opt_direct_estimator),
+            )
+            for key, optimizer in optimizer_states:
+                if optimizer is not None and key in state_dict:
+                    optimizer.load_state_dict(state_dict[key])
+                    for group in optimizer.param_groups:
+                        group["lr"] = self.current_lr
 
     @torch.no_grad()
     def _copy_teacher_to_student(self):

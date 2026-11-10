@@ -1,0 +1,25 @@
+digraph G {
+graph [rankdir=LR,bgcolor="#ffffff",pad="0.35",nodesep="0.45",ranksep="0.65",fontname="DejaVu Sans",fontsize=20,labelloc=t];
+node [shape=box,style="rounded,filled",fillcolor="#e9f2ff",color="#4977a8",fontname="DejaVu Sans",fontsize=12,margin="0.16,0.12"];
+edge [color="#4d6278",fontname="DejaVu Sans",fontsize=10,arrowsize=0.8];
+label="C | GT-force residual actor over a frozen motion tracker";
+data [label="Motion reference\n(training only)",fillcolor="#ede8ff"];
+gen [label="Spring / online Jacobian /\noffline segmented generator",fillcolor="#ede8ff"];
+robot [label="Robot + PD actuators",fillcolor="#dcf5e7"];
+obs [label="Proprioception + actual GT force\n+ own q_ref / tracking error / ref velocity",fillcolor="#e9f2ff"];
+actor [label="Trainable residual actor\n29 joint-reference increments",fillcolor="#e9f2ff"];
+integrate [label="Reference integrator\nq_ref += dt * speed * tanh(action)\nlimits + tracking-error bound",fillcolor="#e9f2ff"];
+low [label="FROZEN CEER or SONIC\nCEER: bypass joint predictor\nSONIC: frozen encoder/decoder path",fillcolor="#e5e7eb"];
+reward [label="Dense tracking + regularization\nprivileged critic",fillcolor="#fff0d6"];
+data -> gen [label=""];
+gen -> robot [label="external force"];
+robot -> obs [label="state + applied force",constraint=false];
+obs -> actor [label=""];
+actor -> integrate [label="residual"];
+integrate -> low [label="self-generated reference"];
+low -> robot [label="low-level action"];
+integrate -> obs [label="own reference (not dataset target)",constraint=false];
+data -> reward [label="target",style=dashed,color="#bd791f",constraint=false];
+robot -> reward [label="actual state",style=dashed,color="#bd791f",constraint=false];
+reward -> actor [label="PPO",style=dashed,color="#bd791f",constraint=false];
+}

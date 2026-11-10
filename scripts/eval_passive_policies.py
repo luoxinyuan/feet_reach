@@ -142,6 +142,9 @@ def main():
      if hasattr(cmd,'point_desired'):
       desired_force=cmd.point_desired.sum(1)
       desired_yaw=torch.cross(cmd.point_positions_w()-asset.data.root_pos_w[:,None],cmd.point_desired,dim=-1).sum(1)[:,2]
+     elif cfg.task.command._target_.endswith("DirectKeypointSpringCommand"):
+      desired_force=cmd.desired.sum(1)
+      desired_yaw=torch.cross(cmd.point_positions_w()-asset.data.root_pos_w[:,None],cmd.desired,dim=-1).sum(1)[:,2]
      else:desired_force,desired_yaw=cmd.desired_force,cmd.desired_yaw
      metrics.update(keypoint_error_m=(actual-target).norm(dim=-1).mean(-1),
        force_N=force_magnitude,active_force_count=(point_forces.norm(dim=-1)>1e-5).sum(-1).float(),

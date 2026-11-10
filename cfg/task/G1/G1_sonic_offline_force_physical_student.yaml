@@ -1,0 +1,29 @@
+# @package task
+defaults:
+  - /task/G1/G1_sonic_compliance
+  - _self_
+
+name: G1SonicOfflineForcePhysicalStudent
+
+# Same cached force targets and physical-force branch as the CEER
+# teacher/student pipeline, with the frozen SONIC residual adapter underneath.
+command:
+  _target_: active_adaptation.envs.mdp.commands.offline_force_prompt.OfflineForcePromptCommand
+  guidance_cache: artifacts/offline_force_baseline/train37_budget60
+  physical_guidance: true
+  dataset:
+    mem_paths:
+      - /home/xl521/feet_reach/artifacts/offline_force_baseline/train37_budget60/dataset0
+      - /home/xl521/feet_reach/artifacts/offline_force_baseline/train37_budget60/dataset1
+    path_weights: [0.8, 0.2]
+
+# SONIC observes its own causal reference and measured joint velocities. The
+# measured wrench channel stays disabled; force input is isolated in force_gt_.
+observation:
+  policy:
+    upper_body_forces_b:
+      enabled: false
+    sonic_joint_velocity: {}
+    sonic_reference: {}
+  force_gt_:
+    offline_force_prompt: {}

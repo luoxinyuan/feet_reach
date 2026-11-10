@@ -1,0 +1,13 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3_student_no_ee
+  - _self_
+name: G1CEEROnlineEstimatedRoot3StudentNoEECrouchCompliance
+command:
+  dataset:
+    # Preserve the existing root3/hand-force motions and mix in the
+    # crouch clips used to train the frozen low-level policy.
+    mem_paths:
+      - ../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset
+      - crouch_lowlevel/train
+    path_weights: [1.0, 0.05]

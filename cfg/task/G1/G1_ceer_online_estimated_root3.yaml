@@ -1,0 +1,15 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_ee_root3_compliance
+  - _self_
+name: G1CEEROnlineEstimatedRoot3Compliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.online_estimated_compliance.OnlineEstimatedComplianceCommand
+  estimator_history: 10
+observation:
+  policy:
+    upper_body_forces_b: {enabled: false}
+  force_gt_:
+    dense_force_gt: {}
+  estimator_history_:
+    dense_estimator_history: {}

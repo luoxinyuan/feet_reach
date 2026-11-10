@@ -1,0 +1,9 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3_student_no_ee_crouch20_force_history_filtered
+  - _self_
+name: G1CEERDirectSpringRoot3Crouch20ForceHistoryFilteredCompliance
+command:
+  _target_: active_adaptation.envs.mdp.commands.direct_keypoint_spring.DirectKeypointSpringCommand
+  spring_gain: 80.0
+  estimator_history: 10

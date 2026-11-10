@@ -15,6 +15,9 @@ if args.checkpoint:ckpt=args.checkpoint
 else:
  run=Path((ROOT/'outputs/passive-whole-body/latest_pipeline.txt').read_text().strip());phase='finetune' if args.controller=='student' else 'train';ckpt=next((run/phase).rglob('checkpoint_final.pt'))
 state=torch.load(ckpt,map_location='cpu',weights_only=False);cfg=OmegaConf.create(OmegaConf.to_container(state['cfg'],resolve=True));OmegaConf.set_struct(cfg,False)
+# The teacher actor consumes the full-body joint target directly. A finetune
+# checkpoint retains that teacher, but its saved phase selects the student.
+if args.controller=='teacher':cfg.algo.phase='train'
 cfg.checkpoint_path=str(ckpt);cfg.vecnorm='eval';cfg.task.num_envs=1;cfg.wandb.mode='disabled';cfg.eval_render=True;cfg.headless=True
 cfg.task.command.dataset.mem_paths=[args.dataset];cfg.task.command.dataset.path_weights=[1.];cfg.task.command.dataset.resample_on_reset=False
 if args.task is not None:
@@ -47,12 +50,16 @@ try:
  torch.manual_seed(42);np.random.seed(42)
  env,agent,_,_=make_env_policy(cfg);env.eval();env.base_env.eval();agent.eval();cmd=env.command_manager;asset=cmd.asset;cmd.zero_init_prob=1.
  policy=agent.get_rollout_policy('deploy' if args.controller=='student' else 'train')
- if args.controller=='student':assert list(policy.in_keys)==['policy']
+ if args.controller=='student':
+  expected={'policy'}
+  if bool(cfg.algo.get('student_use_gt_joint_target',False)):expected.add('joint_target')
+  actual=set(policy.in_keys)
+  assert expected.issubset(actual),f'student policy inputs {sorted(actual)} do not include expected {sorted(expected)}'
  torch.manual_seed(42);np.random.seed(42)
  td=env.reset();assert int(cmd.t[0])==0
  if args.disable_forces and hasattr(cmd,'set_external_force_enabled'):cmd.set_external_force_enabled(False)
  initial_hash=hashlib.sha256(asset.data.joint_pos.cpu().numpy().tobytes()+asset.data.root_pos_w.cpu().numpy().tobytes()).hexdigest()
- label=cfg.task.name if args.checkpoint else args.controller
+ label=(cfg.task.name+' • TEACHER: DIRECT JOINT TARGET INPUT' if args.controller=='teacher' else (cfg.task.name if args.checkpoint else args.controller))
  stage=omni.usd.get_context().get_stage();cache=UsdGeom.XformCache()
  def material(path,color,opacity=1.):
   mat=UsdShade.Material.Define(stage,path);shader=UsdShade.Shader.Define(stage,path+'/Shader');shader.CreateIdAttr('UsdPreviewSurface')
@@ -120,7 +127,10 @@ try:
    env.base_env.cfg.viewer.eye=(center+np.array([1.7,-2.,.95])*distance-rootpos).tolist()
    env.base_env.cfg.viewer.lookat=(center-rootpos).tolist()
    error=float((asset.data.body_pos_w[:,cmd.keypoint_idx_asset]-cmd.reward_keypoints_w[:,cmd.keypoint_idx_motion]).norm(dim=-1).mean())
-   rows.append(dict(time_s=step*env.step_dt,reference_frame=int(cmd.t[0]),keypoint_error_m=error,force=forces.tolist(),points=actual.tolist()))
+   rows.append(dict(time_s=step*env.step_dt,reference_frame=int(cmd.t[0]),keypoint_error_m=error,
+                    root_z_m=float(asset.data.root_pos_w[0,2]),
+                    reference_root_z_m=float(cmd.reward_root_pos_w[0,2]),
+                    force=forces.tolist(),points=actual.tolist()))
    if step%2==0 or step==steps:
     rgb=env.render('rgb_array');im=Image.fromarray(rgb);draw=ImageDraw.Draw(im,'RGBA')
     # Project the same 3D vectors as an on-top overlay so tiny forces remain legible.
@@ -144,7 +154,8 @@ try:
     writer.append_data(np.asarray(im));images+=1
     if step in (0,50,250,500,750):im.save(args.output/f'frame_{step:04d}.png')
  writer.close()
- summary=dict(controller=args.controller,backend=label,seed=42,initial_sha256=initial_hash,clip_id=clip,selection='longest clip, median root travel; no performance filtering' if args.clip<0 else 'explicit clip',checkpoint=str(ckpt),reference_frames=length,rendered_reference_end=int(cmd.t[0]),video_frames=images,video_fps=25,video_seconds=images/25,first_tracking_failure_s=first_fail,forces_disabled=bool(args.disable_forces),ghost_meshes=mesh_count,ghost_opacity=.16,force_arrow_m_per_N=.08,reset_count=1)
+ policy_input=('full-body joint target supplied directly to teacher actor' if args.controller=='teacher' else ('student observations + direct ground-truth full-body joint target' if bool(cfg.algo.get('student_use_gt_joint_target',False)) else 'student deployment observations'))
+ summary=dict(controller=args.controller,policy_phase=cfg.algo.phase,policy_input=policy_input,backend=label,seed=42,initial_sha256=initial_hash,clip_id=clip,selection='longest clip, median root travel; no performance filtering' if args.clip<0 else 'explicit clip',checkpoint=str(ckpt),reference_frames=length,rendered_reference_end=int(cmd.t[0]),video_frames=images,video_fps=25,video_seconds=images/25,first_tracking_failure_s=first_fail,forces_disabled=bool(args.disable_forces),root_height_actual_min_m=min(r['root_z_m'] for r in rows),root_height_reference_min_m=min(r['reference_root_z_m'] for r in rows),keypoint_error_mean_cm=100*float(np.mean([r['keypoint_error_m'] for r in rows])),keypoint_error_p95_cm=100*float(np.percentile([r['keypoint_error_m'] for r in rows],95)),ghost_meshes=mesh_count,ghost_opacity=.16,force_arrow_m_per_N=.08,reset_count=1)
  (args.output/'summary.json').write_text(json.dumps(summary,indent=2));(args.output/'trace.json').write_text(json.dumps(rows));print('VIDEO_COMPLETE',summary,flush=True)
  SimulationContext.instance()._disable_app_control_on_stop_handle=True;env.close()
 except BaseException:

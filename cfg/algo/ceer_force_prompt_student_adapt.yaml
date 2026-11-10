@@ -1,0 +1,7 @@
+# @package algo
+defaults:
+  - ceer_force_prompt_student
+  - _self_
+
+name: ceer_force_prompt_student_adapt
+phase: adapt

@@ -1,0 +1,6 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_offline_force_physical_teacher
+  - _self_
+
+name: G1CEEROfflineForcePhysicalStudent

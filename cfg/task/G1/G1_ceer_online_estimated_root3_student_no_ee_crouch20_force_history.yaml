@@ -1,0 +1,12 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3_student_no_ee_crouch20
+  - _self_
+name: G1CEEROnlineEstimatedRoot3StudentNoEECrouch20ForceHistoryCompliance
+command:
+  force_prompt_history_offsets: [0, 1, 2, 4, 8, 16]
+observation:
+  force_gt_:
+    dense_force_gt:
+      enabled: false
+    dense_force_gt_history: {}

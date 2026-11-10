@@ -72,6 +72,13 @@ class PPOConfig:
     # joint prediction weight for adapt-phase estimator
     joint_pred_weight: float = 1.0
     symmetry_augmentation: bool = True
+    # Allow direct joint-target teacher fine-tuning without updating the
+    # adaptation estimators. The teacher consumes OBS_JOINT_KEY itself.
+    train_estimators: bool = True
+    # Let the student consume the ground-truth full-body joint target directly.
+    # This bypasses adapt_joint_module while retaining the privileged-state
+    # adaptation path used by the student.
+    student_use_gt_joint_target: bool = False
 
     # distillation
     reg_lambda: float = 0.2  # weight of priv-feature alignment
@@ -101,6 +108,7 @@ cs = ConfigStore.instance()
 cs.store("ppo_train", node=PPOConfig(phase="train", vecnorm="train"), group="algo")
 cs.store("ppo_adapt", node=PPOConfig(phase="adapt", vecnorm="eval", train_every=16), group="algo")
 cs.store("ppo_finetune", node=PPOConfig(phase="finetune", vecnorm="eval", lr=1e-4, entropy_coef_start=0.002, entropy_coef_end=0.0005), group="algo")
+cs.store("ppo_joint_target_finetune", node=PPOConfig(phase="train", vecnorm="eval", lr=1e-4, entropy_coef_start=0.002, entropy_coef_end=0.0005, train_estimators=False), group="algo")
 
 class PPOPolicy(TensorDictModuleBase):
     def __init__(
@@ -172,7 +180,9 @@ class PPOPolicy(TensorDictModuleBase):
         # Student: uses policy + priv_pred (predicted latent, no joint_target)
         # actor_in_keys_train = [OBS_KEY, "priv_feature"]
         actor_in_keys_train = [OBS_KEY, "priv_feature", OBS_JOINT_KEY]
-        actor_in_keys_adapt = [OBS_KEY, "priv_pred", "priv_joint"]
+        actor_in_keys_adapt = [OBS_KEY, "priv_pred", (
+            OBS_JOINT_KEY if self.cfg.student_use_gt_joint_target else "priv_joint"
+        )]
 
         def geometry_modules():
             if not self.cfg.geometry_points:
@@ -336,11 +346,13 @@ class PPOPolicy(TensorDictModuleBase):
             modules += [self.encoder_priv, self.actor_teacher]
         elif self.cfg.phase == "finetune":
             modules += [self.adapt_module]
-            modules += [self.adapt_joint_module]
+            if not self.cfg.student_use_gt_joint_target:
+                modules += [self.adapt_joint_module]
             modules += [self.actor_student]
         elif self.cfg.phase == "adapt":
             modules += [self.adapt_module]
-            modules += [self.adapt_joint_module]
+            if not self.cfg.student_use_gt_joint_target:
+                modules += [self.adapt_joint_module]
             modules += [self.actor_student]
 
         policy = Seq(*modules)
@@ -359,7 +371,8 @@ class PPOPolicy(TensorDictModuleBase):
         if self.cfg.phase == "train":
             info = {}
             info.update(self._ppo_update(td, self.update_teacher))
-            info.update(self.train_estimator(td))
+            if self.cfg.train_estimators:
+                info.update(self.train_estimator(td))
         elif self.cfg.phase == "finetune":
             info = {}
             if self.progress > 0.025:
@@ -441,7 +454,7 @@ class PPOPolicy(TensorDictModuleBase):
         value_loss = F.mse_loss(mb["ret"], values, reduction="none")
         value_loss = (value_loss * valid).mean(dim=0)
 
-        if self.cfg.phase == "train":
+        if self.cfg.phase == "train" and self.cfg.train_estimators:
             if "priv_pred" not in mb.keys():
                 with torch.no_grad():
                     self.adapt_module(mb)
@@ -530,13 +543,16 @@ class PPOPolicy(TensorDictModuleBase):
             self.encoder_priv(mb)
         # compute student predictions (with grad)
         adapt_module(mb)
-        adapt_joint_module(mb)
+        if not self.cfg.student_use_gt_joint_target:
+            adapt_joint_module(mb)
 
         valid = ~mb["is_init"]
         loss_pred = torch.mean(F.mse_loss(mb["priv_pred"], mb["priv_feature"], reduction="none") * (valid))
 
         # joint prediction loss: only compute if joint key exists in batch
-        if OBS_JOINT_KEY in mb.keys():
+        if self.cfg.student_use_gt_joint_target:
+            loss_joint = torch.zeros((), device=loss_pred.device)
+        elif OBS_JOINT_KEY in mb.keys():
             joint_target = mb[OBS_JOINT_KEY]
             loss_joint = torch.mean(F.mse_loss(mb["priv_joint"], joint_target, reduction="none") * (valid))
         else:

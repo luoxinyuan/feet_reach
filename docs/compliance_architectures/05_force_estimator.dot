@@ -1,0 +1,32 @@
+digraph G {
+graph [rankdir=TB,bgcolor="#ffffff",pad="0.35",nodesep="0.45",ranksep="0.65",fontname="DejaVu Sans",fontsize=20,labelloc=t];
+node [shape=box,style="rounded,filled",fillcolor="#e9f2ff",color="#4977a8",fontname="DejaVu Sans",fontsize=12,margin="0.16,0.12"];
+edge [color="#4d6278",fontname="DejaVu Sans",fontsize=10,arrowsize=0.8];
+label="E | Force-estimated residual student: three training phases";
+gt [label="GT physically applied force\nroot frame / 30 N\ntraining only",fillcolor="#ede8ff"];
+state [label="Public proprioception\n+ own reference/error",fillcolor="#e9f2ff"];
+hist [label="10 causal frames x 93\nangular velocity / gravity / q / dq\nactual low-level action",fillcolor="#e9f2ff"];
+est [label="Force estimator\nMLP 930 -> 512 -> 256 -> 3K\nK=3 or 23",fillcolor="#e9f2ff"];
+teacher [label="1. GT-force residual teacher\n4B dense PPO; then frozen",fillcolor="#fff0d6"];
+student [label="2. Distill (1B): student rollout\n3. Fine-tune (4B): estimated-force PPO\n+ teacher action imitation",fillcolor="#e9f2ff"];
+loss [label="Force MSE supervision\nEstimator updated AFTER PPO",fillcolor="#fff0d6"];
+low [label="Reference integrator\n+ FROZEN general CEER",fillcolor="#e5e7eb"];
+robot [label="Robot simulator\nonline J (3kp) / cached delta force (23-link)",fillcolor="#dcf5e7"];
+reward [label="Motion targets -> dense reward\nand privileged critic ONLY",fillcolor="#fff0d6"];
+state -> teacher [label="",style=dashed,color="#bd791f",constraint=false];
+gt -> teacher [label="GT",style=dashed,color="#bd791f",constraint=false];
+hist -> est [label=""];
+est -> student [label="estimated force"];
+state -> student [label=""];
+teacher -> student [label="action labels on student states",style=dashed,color="#bd791f",constraint=false];
+gt -> loss [label="label",style=dashed,color="#bd791f",constraint=false];
+est -> loss [label="prediction",style=dashed,color="#bd791f",constraint=false];
+loss -> est [label="update",style=dashed,color="#bd791f",constraint=false];
+teacher -> low [label="phase 1 residual rollout",style=dashed,color="#bd791f",constraint=false];
+student -> low [label="residual"];
+low -> robot [label="action"];
+robot -> hist [label="causal measurements",constraint=false];
+robot -> state [label="",constraint=false];
+reward -> teacher [label="PPO phase 1",style=dashed,color="#bd791f",constraint=false];
+reward -> student [label="PPO phase 3",style=dashed,color="#bd791f",constraint=false];
+}

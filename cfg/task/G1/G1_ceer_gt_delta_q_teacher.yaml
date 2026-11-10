@@ -1,0 +1,23 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_compliance
+  - _self_
+name: G1CEERGTDeltaQTeacher
+command:
+  _target_: active_adaptation.envs.mdp.commands.gt_delta_q.GTDeltaQCommand
+  guidance_cache: artifacts/offline_force_baseline/train37_budget60
+  dataset:
+    mem_paths:
+      - /home/xl521/feet_reach/artifacts/offline_force_baseline/train37_budget60/dataset0
+      - /home/xl521/feet_reach/artifacts/offline_force_baseline/train37_budget60/dataset1
+    path_weights: [0.8, 0.2]
+action:
+  ceer_checkpoint: /home/xl521/feet_reach/outputs/20261101-ceer-lowlevel-crouch-student-gt-joint-target/113246/finetune/wandb/run-20261101_114716-r2e0ta3u/files/checkpoint_4500.pt
+observation:
+  policy:
+    upper_body_forces_b: {enabled: false}
+  delta_q_gt_:
+    gt_delta_q: {}
+reward:
+  tracking:
+    ee_tracking: {weight: 0.0, enabled: false}

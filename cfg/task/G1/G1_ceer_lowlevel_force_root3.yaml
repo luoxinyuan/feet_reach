@@ -1,0 +1,42 @@
+# @package task
+defaults:
+  - /task/G1/G1_base@_here_
+  - _self_
+name: G1CEERLowLevelForceRoot3
+
+# Keep the established full-body CEER joint-target interface. External forces
+# are applied by the command at pelvis + both hands; they are not an actor
+# action/interface.
+command:
+  _target_: active_adaptation.envs.mdp.commands.online_estimated_compliance.OnlineEstimatedComplianceCommand
+  estimator_history: 10
+  expected_force_points: 3
+  dataset:
+    mem_paths:
+      - ../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset
+      - crouch_lowlevel/train
+    path_weights: [1.0, 0.05]
+  force_points:
+    - {name: root, body: pelvis, offset: [0., 0., 0.]}
+    - {name: left_ee, body: left_hand_mimic, offset: [0., 0., 0.]}
+    - {name: right_ee, body: right_hand_mimic, offset: [0., 0., 0.]}
+
+# Match the already trained GT-joint-target CEER low-level checkpoint's public
+# observation exactly. It infers the disturbance from proprioception; forces
+# act physically and are recorded for the later residual teacher.
+observation:
+  policy:
+    root_ang_vel_history: {history_steps: [0], noise_std: 0.05}
+    projected_gravity_history: {history_steps: [0], noise_std: 0.01}
+    joint_pos_history: {history_steps: [0, 1, 2, 3, 4], noise_std: 0.005}
+    prev_actions: {steps: 3}
+  force_gt_:
+    dense_force_gt: {}
+reward:
+  impedance:
+    force_reward: {enabled: false}
+    force_exd_penalty: {enabled: false}
+    force_target_tracking: {enabled: false}
+    force_target_vel_tracking: {enabled: false}
+    keypoint_tracking_imp: {enabled: false}
+    lower_keypoint_tracking: {enabled: false}

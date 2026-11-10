@@ -1,0 +1,3296 @@
+{
+  "version": "compliance-v1.1",
+  "dt": 0.02,
+  "seeds": [
+    20261104,
+    20261105,
+    20261106
+  ],
+  "clips": [
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 261,
+      "source_motion_id": 5484,
+      "source_start_step": 0,
+      "frames": 251,
+      "category": "left_arm",
+      "features": {
+        "left": 1.0427333286830358,
+        "right": 0.155224118913923,
+        "travel": 0.024773516417857237,
+        "yaw": 0.05815935156282448,
+        "height_range": 0.001953125,
+        "bend": 0.33154296875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 284,
+      "source_motion_id": 5931,
+      "source_start_step": 0,
+      "frames": 271,
+      "category": "right_arm",
+      "features": {
+        "left": 0.18983895438058035,
+        "right": 1.4417550223214286,
+        "travel": 0.006616029085848434,
+        "yaw": 0.10515721443995285,
+        "height_range": 0.00341796875,
+        "bend": 0.233154296875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 12,
+      "source_motion_id": 301,
+      "source_start_step": 0,
+      "frames": 301,
+      "category": "both_arms",
+      "features": {
+        "left": 0.79486083984375,
+        "right": 1.2366943359375,
+        "travel": 0.09918929822392682,
+        "yaw": 0.19802070494836066,
+        "height_range": 0.0146484375,
+        "bend": 0.24188232421875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 326,
+      "source_motion_id": 6760,
+      "source_start_step": 0,
+      "frames": 366,
+      "category": "locomotion",
+      "features": {
+        "left": 0.44338553292410715,
+        "right": 0.4465244838169643,
+        "travel": 1.8853636114197243,
+        "yaw": 2.9338211062258504,
+        "height_range": 0.0712890625,
+        "bend": 0.236175537109375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 51,
+      "source_motion_id": 51,
+      "source_start_step": 0,
+      "frames": 296,
+      "category": "crouch",
+      "features": {
+        "left": 0.2172088623046875,
+        "right": 0.22039358956473215,
+        "travel": 0.1427247456234449,
+        "yaw": 0.6941265825129646,
+        "height_range": 0.087890625,
+        "bend": 0.5699462890625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 17,
+      "source_motion_id": 389,
+      "source_start_step": 0,
+      "frames": 416,
+      "category": "yaw",
+      "features": {
+        "left": 0.5317164829799107,
+        "right": 1.28594970703125,
+        "travel": 0.006059478502880609,
+        "yaw": 0.6486263105480674,
+        "height_range": 0.0361328125,
+        "bend": 0.27545166015625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 46,
+      "source_motion_id": 886,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "bend",
+      "features": {
+        "left": 1.0695452008928572,
+        "right": 1.0231759207589286,
+        "travel": 0.3833060598313664,
+        "yaw": 0.25553120761524695,
+        "height_range": 0.05810546875,
+        "bend": 0.5038909912109375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 189,
+      "source_motion_id": 3863,
+      "source_start_step": 0,
+      "frames": 581,
+      "category": "mixed",
+      "features": {
+        "left": 0.10169546944754464,
+        "right": 0.07716587611607142,
+        "travel": 0.4513846232266692,
+        "yaw": 0.11653655325351209,
+        "height_range": 0.03955078125,
+        "bend": 0.12542724609375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 137,
+      "source_motion_id": 3038,
+      "source_start_step": 0,
+      "frames": 571,
+      "category": "left_arm",
+      "features": {
+        "left": 0.7545340401785714,
+        "right": 0.21486118861607142,
+        "travel": 0.018020789121807424,
+        "yaw": 0.1252917588165423,
+        "height_range": 0.001953125,
+        "bend": 0.139373779296875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 260,
+      "source_motion_id": 5482,
+      "source_start_step": 0,
+      "frames": 301,
+      "category": "right_arm",
+      "features": {
+        "left": 0.16152572631835938,
+        "right": 0.8928789411272321,
+        "travel": 0.009610158672886712,
+        "yaw": 0.04855264741288323,
+        "height_range": 0.00341796875,
+        "bend": 0.104400634765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 15,
+      "source_motion_id": 348,
+      "source_start_step": 0,
+      "frames": 946,
+      "category": "both_arms",
+      "features": {
+        "left": 0.8992483956473214,
+        "right": 1.1047188895089286,
+        "travel": 0.0037216195370046294,
+        "yaw": 0.4316217128034685,
+        "height_range": 0.0283203125,
+        "bend": 0.330810546875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 149,
+      "source_motion_id": 3260,
+      "source_start_step": 0,
+      "frames": 356,
+      "category": "locomotion",
+      "features": {
+        "left": 0.25970023018973215,
+        "right": 0.1658292497907366,
+        "travel": 1.7482522683976474,
+        "yaw": 0.12707731125567312,
+        "height_range": 0.06982421875,
+        "bend": 0.2999267578125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 60,
+      "source_motion_id": 60,
+      "source_start_step": 0,
+      "frames": 259,
+      "category": "crouch",
+      "features": {
+        "left": 0.32029942103794645,
+        "right": 0.3484126499720982,
+        "travel": 0.4672413429758935,
+        "yaw": 1.2291513601339246,
+        "height_range": 0.12744140625,
+        "bend": 0.34423828125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 259,
+      "source_motion_id": 5459,
+      "source_start_step": 0,
+      "frames": 326,
+      "category": "yaw",
+      "features": {
+        "left": 0.3752506801060268,
+        "right": 0.3704616001674107,
+        "travel": 0.017329207396152176,
+        "yaw": 0.9467407057536636,
+        "height_range": 0.021484375,
+        "bend": 0.26910400390625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 107,
+      "source_motion_id": 2175,
+      "source_start_step": 0,
+      "frames": 576,
+      "category": "bend",
+      "features": {
+        "left": 1.1858912876674108,
+        "right": 0.8385511125837054,
+        "travel": 0.028676364769517276,
+        "yaw": 0.20696070485120055,
+        "height_range": 0.00732421875,
+        "bend": 0.353759765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 98,
+      "source_motion_id": 2054,
+      "source_start_step": 0,
+      "frames": 266,
+      "category": "mixed",
+      "features": {
+        "left": 0.19469778878348215,
+        "right": 0.17254420689174108,
+        "travel": 0.3237037705219231,
+        "yaw": 0.12851315558182064,
+        "height_range": 0.02587890625,
+        "bend": 0.1215362548828125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 120,
+      "source_motion_id": 2382,
+      "source_start_step": 0,
+      "frames": 511,
+      "category": "left_arm",
+      "features": {
+        "left": 1.33428955078125,
+        "right": 0.23566109793526785,
+        "travel": 0.02860625741724313,
+        "yaw": 0.13222503829297505,
+        "height_range": 0.0048828125,
+        "bend": 0.2506103515625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 292,
+      "source_motion_id": 6113,
+      "source_start_step": 0,
+      "frames": 256,
+      "category": "right_arm",
+      "features": {
+        "left": 0.1455038615635463,
+        "right": 1.0241590227399553,
+        "travel": 0.011286496368182063,
+        "yaw": 0.05709491872053718,
+        "height_range": 0.0078125,
+        "bend": 0.116485595703125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 282,
+      "source_motion_id": 5906,
+      "source_start_step": 0,
+      "frames": 326,
+      "category": "both_arms",
+      "features": {
+        "left": 0.9060756138392857,
+        "right": 0.98760986328125,
+        "travel": 0.009389255657302526,
+        "yaw": 0.22304392663849804,
+        "height_range": 0.06201171875,
+        "bend": 0.23712158203125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 338,
+      "source_motion_id": 6965,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "locomotion",
+      "features": {
+        "left": 0.34733472551618305,
+        "right": 0.32789175851004465,
+        "travel": 1.3205391277408025,
+        "yaw": 6.042789584047609,
+        "height_range": 0.0517578125,
+        "bend": 0.3983154296875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 56,
+      "source_motion_id": 56,
+      "source_start_step": 0,
+      "frames": 469,
+      "category": "crouch",
+      "features": {
+        "left": 0.18044607979910715,
+        "right": 0.26981898716517855,
+        "travel": 0.0330778591963405,
+        "yaw": 0.06587975489032916,
+        "height_range": 0.04052734375,
+        "bend": 0.08087158203125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 239,
+      "source_motion_id": 4954,
+      "source_start_step": 0,
+      "frames": 971,
+      "category": "yaw",
+      "features": {
+        "left": 0.7003173828125,
+        "right": 0.5296140398297992,
+        "travel": 0.08928079559623116,
+        "yaw": 1.4725936576832723,
+        "height_range": 0.0283203125,
+        "bend": 0.376953125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 244,
+      "source_motion_id": 5036,
+      "source_start_step": 0,
+      "frames": 381,
+      "category": "bend",
+      "features": {
+        "left": 1.4799717494419642,
+        "right": 1.5088043212890625,
+        "travel": 0.23636122542682242,
+        "yaw": 0.18051555437640943,
+        "height_range": 0.04638671875,
+        "bend": 0.441162109375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 71,
+      "source_motion_id": 1419,
+      "source_start_step": 0,
+      "frames": 416,
+      "category": "mixed",
+      "features": {
+        "left": 0.15890938895089285,
+        "right": 0.12031882149832589,
+        "travel": 0.26662421133025344,
+        "yaw": 0.142310806240741,
+        "height_range": 0.03125,
+        "bend": 0.205291748046875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 278,
+      "source_motion_id": 5855,
+      "source_start_step": 0,
+      "frames": 331,
+      "category": "right_arm",
+      "features": {
+        "left": 0.21297563825334823,
+        "right": 0.9116385323660714,
+        "travel": 0.046080542547216885,
+        "yaw": 0.18332393046942652,
+        "height_range": 0.005859375,
+        "bend": 0.17645281553268433
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 25,
+      "source_motion_id": 496,
+      "source_start_step": 0,
+      "frames": 611,
+      "category": "both_arms",
+      "features": {
+        "left": 0.9578595842633929,
+        "right": 1.5187116350446428,
+        "travel": 0.01738888983893575,
+        "yaw": 0.3710393675953012,
+        "height_range": 0.03466796875,
+        "bend": 0.290802001953125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 354,
+      "source_motion_id": 7322,
+      "source_start_step": 0,
+      "frames": 401,
+      "category": "locomotion",
+      "features": {
+        "left": 0.29702322823660715,
+        "right": 0.32388741629464285,
+        "travel": 2.390628590300613,
+        "yaw": 3.0585509874634447,
+        "height_range": 0.0341796875,
+        "bend": 0.335601806640625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 67,
+      "source_motion_id": 67,
+      "source_start_step": 0,
+      "frames": 371,
+      "category": "crouch",
+      "features": {
+        "left": 0.02313232421875,
+        "right": 0.025438240596226284,
+        "travel": 0.009171849632606978,
+        "yaw": 0.007802978164828334,
+        "height_range": 0.0107421875,
+        "bend": 0.01348876953125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 61,
+      "source_motion_id": 1142,
+      "source_start_step": 0,
+      "frames": 811,
+      "category": "yaw",
+      "features": {
+        "left": 1.2432599748883928,
+        "right": 1.3379167829241072,
+        "travel": 0.07845573194463967,
+        "yaw": 0.741636092695277,
+        "height_range": 0.037109375,
+        "bend": 0.37554931640625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 112,
+      "source_motion_id": 2242,
+      "source_start_step": 0,
+      "frames": 286,
+      "category": "bend",
+      "features": {
+        "left": 0.6861223493303571,
+        "right": 0.7010671751839774,
+        "travel": 0.021561625973032517,
+        "yaw": 0.1794132356722664,
+        "height_range": 0.0068359375,
+        "bend": 0.38916015625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 101,
+      "source_motion_id": 2083,
+      "source_start_step": 0,
+      "frames": 266,
+      "category": "mixed",
+      "features": {
+        "left": 0.1251405988420759,
+        "right": 0.10386766706194196,
+        "travel": 0.44958063559065997,
+        "yaw": 0.14744384785048803,
+        "height_range": 0.0419921875,
+        "bend": 0.14399051666259766
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 291,
+      "source_motion_id": 6056,
+      "source_start_step": 0,
+      "frames": 276,
+      "category": "right_arm",
+      "features": {
+        "left": 0.12793513706752233,
+        "right": 0.4834049769810268,
+        "travel": 0.0017468666855902646,
+        "yaw": 0.08938445215332802,
+        "height_range": 0.001953125,
+        "bend": 0.17584228515625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 29,
+      "source_motion_id": 635,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "both_arms",
+      "features": {
+        "left": 1.2009364536830358,
+        "right": 1.2288867405482702,
+        "travel": 0.07622350874532444,
+        "yaw": 0.4309139858835227,
+        "height_range": 0.041015625,
+        "bend": 0.293609619140625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 125,
+      "source_motion_id": 2526,
+      "source_start_step": 0,
+      "frames": 331,
+      "category": "locomotion",
+      "features": {
+        "left": 0.28796168736049105,
+        "right": 0.31481824602399555,
+        "travel": 2.0530086954697286,
+        "yaw": 2.0021325000617103,
+        "height_range": 0.05859375,
+        "bend": 0.28582763671875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 42,
+      "source_motion_id": 42,
+      "source_start_step": 0,
+      "frames": 398,
+      "category": "crouch",
+      "features": {
+        "left": 0.16417149135044642,
+        "right": 0.205078125,
+        "travel": 0.007509441641673433,
+        "yaw": 0.08646704310475384,
+        "height_range": 0.02197265625,
+        "bend": 0.09699249267578125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 276,
+      "source_motion_id": 5846,
+      "source_start_step": 0,
+      "frames": 281,
+      "category": "yaw",
+      "features": {
+        "left": 0.9798671177455357,
+        "right": 1.7997948782784599,
+        "travel": 0.0730632439800625,
+        "yaw": 0.6376848908101485,
+        "height_range": 0.04443359375,
+        "bend": 0.578369140625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 209,
+      "source_motion_id": 4303,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "bend",
+      "features": {
+        "left": 1.7464338030133928,
+        "right": 2.1053466796875,
+        "travel": 0.06934776339621779,
+        "yaw": 0.2906553884162066,
+        "height_range": 0.03466796875,
+        "bend": 0.66748046875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 288,
+      "source_motion_id": 5975,
+      "source_start_step": 0,
+      "frames": 486,
+      "category": "mixed",
+      "features": {
+        "left": 0.15835462297712052,
+        "right": 0.15025519473212107,
+        "travel": 0.0379153644034434,
+        "yaw": 0.12504987896527853,
+        "height_range": 0.04150390625,
+        "bend": 0.1772308349609375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 293,
+      "source_motion_id": 6148,
+      "source_start_step": 0,
+      "frames": 271,
+      "category": "right_arm",
+      "features": {
+        "left": 0.10669490269252233,
+        "right": 0.8273718697684151,
+        "travel": 0.00182773474135404,
+        "yaw": 0.035292593121795335,
+        "height_range": 0.0126953125,
+        "bend": 0.0848236083984375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 254,
+      "source_motion_id": 5256,
+      "source_start_step": 0,
+      "frames": 251,
+      "category": "both_arms",
+      "features": {
+        "left": 1.176180158342634,
+        "right": 1.045421872820173,
+        "travel": 0.04132518242577646,
+        "yaw": 0.07786657590681623,
+        "height_range": 0.009765625,
+        "bend": 0.25421142578125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 371,
+      "source_motion_id": 7641,
+      "source_start_step": 0,
+      "frames": 431,
+      "category": "locomotion",
+      "features": {
+        "left": 0.35350254603794645,
+        "right": 0.3403538295200893,
+        "travel": 3.929509593527467,
+        "yaw": 0.7421190867108314,
+        "height_range": 0.04931640625,
+        "bend": 0.3280792236328125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 71,
+      "source_motion_id": 71,
+      "source_start_step": 0,
+      "frames": 477,
+      "category": "crouch",
+      "features": {
+        "left": 0.040443624768938334,
+        "right": 0.032932826450892856,
+        "travel": 0.006284046571828901,
+        "yaw": 0.021285057106516625,
+        "height_range": 0.0078125,
+        "bend": 0.0364837646484375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 14,
+      "source_motion_id": 303,
+      "source_start_step": 0,
+      "frames": 361,
+      "category": "yaw",
+      "features": {
+        "left": 1.0080086844308036,
+        "right": 1.995847429547991,
+        "travel": 0.059062580308728706,
+        "yaw": 0.7277749164832612,
+        "height_range": 0.0341796875,
+        "bend": 0.5570068359375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 60,
+      "source_motion_id": 1082,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "bend",
+      "features": {
+        "left": 0.8757978166852679,
+        "right": 1.4610791887555803,
+        "travel": 0.2703261076089248,
+        "yaw": 0.43848474608757715,
+        "height_range": 0.03076171875,
+        "bend": 0.5703125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 99,
+      "source_motion_id": 2070,
+      "source_start_step": 0,
+      "frames": 261,
+      "category": "mixed",
+      "features": {
+        "left": 0.17383929661342076,
+        "right": 0.13945252554757254,
+        "travel": 0.3368408344686568,
+        "yaw": 0.08989279739742795,
+        "height_range": 0.02783203125,
+        "bend": 0.1521453857421875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 30,
+      "source_motion_id": 640,
+      "source_start_step": 0,
+      "frames": 386,
+      "category": "right_arm",
+      "features": {
+        "left": 0.5679103306361607,
+        "right": 1.1755458286830358,
+        "travel": 0.0731832966876103,
+        "yaw": 0.4395612617071796,
+        "height_range": 0.04150390625,
+        "bend": 0.18762588500976562
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 187,
+      "source_motion_id": 3836,
+      "source_start_step": 0,
+      "frames": 981,
+      "category": "both_arms",
+      "features": {
+        "left": 1.0575212751116072,
+        "right": 1.173189435686384,
+        "travel": 0.08596513179313565,
+        "yaw": 0.3025636726394181,
+        "height_range": 0.02978515625,
+        "bend": 0.22509765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 365,
+      "source_motion_id": 7591,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "locomotion",
+      "features": {
+        "left": 0.2734287806919643,
+        "right": 0.2710484095982143,
+        "travel": 2.19012402779868,
+        "yaw": 8.035239572513717,
+        "height_range": 0.04443359375,
+        "bend": 0.315185546875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 81,
+      "source_motion_id": 81,
+      "source_start_step": 0,
+      "frames": 302,
+      "category": "crouch",
+      "features": {
+        "left": 0.15232631138392858,
+        "right": 0.12747628348214285,
+        "travel": 0.02442223639765319,
+        "yaw": 0.13047775663423078,
+        "height_range": 0.031494140625,
+        "bend": 0.07940673828125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 36,
+      "source_motion_id": 734,
+      "source_start_step": 0,
+      "frames": 436,
+      "category": "yaw",
+      "features": {
+        "left": 0.7414376395089286,
+        "right": 1.4832066127232142,
+        "travel": 0.012015172512236612,
+        "yaw": 0.8344253029207289,
+        "height_range": 0.02685546875,
+        "bend": 0.482086181640625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 201,
+      "source_motion_id": 4193,
+      "source_start_step": 0,
+      "frames": 996,
+      "category": "bend",
+      "features": {
+        "left": 0.1708214623587472,
+        "right": 0.8888331821986607,
+        "travel": 0.009791195489670428,
+        "yaw": 0.1009619362297982,
+        "height_range": 0.0029296875,
+        "bend": 0.3551025390625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 286,
+      "source_motion_id": 5946,
+      "source_start_step": 0,
+      "frames": 626,
+      "category": "mixed",
+      "features": {
+        "left": 0.2215472630092076,
+        "right": 0.17227608816964285,
+        "travel": 0.011033721695813356,
+        "yaw": 0.2301920945203657,
+        "height_range": 0.02685546875,
+        "bend": 0.18072509765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 264,
+      "source_motion_id": 5613,
+      "source_start_step": 0,
+      "frames": 271,
+      "category": "right_arm",
+      "features": {
+        "left": 0.1365459987095424,
+        "right": 1.0842197963169642,
+        "travel": 0.011131487514943703,
+        "yaw": 0.03507699629509631,
+        "height_range": 0.0244140625,
+        "bend": 0.2115478515625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 16,
+      "source_motion_id": 383,
+      "source_start_step": 0,
+      "frames": 866,
+      "category": "both_arms",
+      "features": {
+        "left": 0.5976518903459821,
+        "right": 1.048295157296317,
+        "travel": 0.04648649878017992,
+        "yaw": 0.28538377446918095,
+        "height_range": 0.01904296875,
+        "bend": 0.19732666015625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 5,
+      "source_motion_id": 121,
+      "source_start_step": 0,
+      "frames": 496,
+      "category": "locomotion",
+      "features": {
+        "left": 0.3982173374720982,
+        "right": 0.32975006103515625,
+        "travel": 6.6648111940214125,
+        "yaw": 1.7308273110126304,
+        "height_range": 0.06494140625,
+        "bend": 0.24261474609375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 44,
+      "source_motion_id": 44,
+      "source_start_step": 0,
+      "frames": 367,
+      "category": "crouch",
+      "features": {
+        "left": 0.08056640625,
+        "right": 0.11499459402901786,
+        "travel": 0.01808309921580667,
+        "yaw": 0.08397736019722235,
+        "height_range": 0.01611328125,
+        "bend": 0.0938720703125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 123,
+      "source_motion_id": 2463,
+      "source_start_step": 0,
+      "frames": 626,
+      "category": "yaw",
+      "features": {
+        "left": 0.31807381766183035,
+        "right": 0.8740713936941964,
+        "travel": 0.09300760312048804,
+        "yaw": 1.6377032732637784,
+        "height_range": 0.04541015625,
+        "bend": 0.3871631622314453
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 48,
+      "source_motion_id": 912,
+      "source_start_step": 0,
+      "frames": 426,
+      "category": "bend",
+      "features": {
+        "left": 0.9713047572544643,
+        "right": 0.8192574637276786,
+        "travel": 0.13366399613597904,
+        "yaw": 0.33215628843547895,
+        "height_range": 0.04736328125,
+        "bend": 0.5194091796875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 262,
+      "source_motion_id": 5551,
+      "source_start_step": 0,
+      "frames": 296,
+      "category": "right_arm",
+      "features": {
+        "left": 0.1596306392124721,
+        "right": 0.9289202008928571,
+        "travel": 0.010480695207392478,
+        "yaw": 0.04915074511625228,
+        "height_range": 0.00634765625,
+        "bend": 0.12744140625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 82,
+      "source_motion_id": 1675,
+      "source_start_step": 0,
+      "frames": 616,
+      "category": "both_arms",
+      "features": {
+        "left": 0.73931884765625,
+        "right": 0.6043984549386161,
+        "travel": 0.002529027772178716,
+        "yaw": 0.0614775779153196,
+        "height_range": 0.03125,
+        "bend": 0.2357330322265625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 315,
+      "source_motion_id": 6568,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "locomotion",
+      "features": {
+        "left": 0.5214146205357143,
+        "right": 0.6226283482142857,
+        "travel": 1.3842772576333748,
+        "yaw": 22.380182010491232,
+        "height_range": 0.0615234375,
+        "bend": 0.28662109375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 45,
+      "source_motion_id": 45,
+      "source_start_step": 0,
+      "frames": 359,
+      "category": "crouch",
+      "features": {
+        "left": 0.5017613002232143,
+        "right": 0.09603445870535714,
+        "travel": 0.014334122937148095,
+        "yaw": 0.07351565550147732,
+        "height_range": 0.0166015625,
+        "bend": 0.03729248046875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 325,
+      "source_motion_id": 6748,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "yaw",
+      "features": {
+        "left": 0.13506208147321427,
+        "right": 0.20379202706473215,
+        "travel": 0.186317569905543,
+        "yaw": 12.434897624252887,
+        "height_range": 0.03466796875,
+        "bend": 0.316162109375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 196,
+      "source_motion_id": 4045,
+      "source_start_step": 0,
+      "frames": 531,
+      "category": "bend",
+      "features": {
+        "left": 1.19976806640625,
+        "right": 0.8242972237723214,
+        "travel": 0.0740360510109776,
+        "yaw": 0.18132414176435274,
+        "height_range": 0.0068359375,
+        "bend": 0.4393310546875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 272,
+      "source_motion_id": 5746,
+      "source_start_step": 0,
+      "frames": 266,
+      "category": "right_arm",
+      "features": {
+        "left": 0.14399065290178573,
+        "right": 0.6611251831054688,
+        "travel": 0.02394069752834139,
+        "yaw": 0.12196538641216859,
+        "height_range": 0.0048828125,
+        "bend": 0.146514892578125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 141,
+      "source_motion_id": 3083,
+      "source_start_step": 0,
+      "frames": 321,
+      "category": "both_arms",
+      "features": {
+        "left": 0.7372610909598214,
+        "right": 0.6762760707310268,
+        "travel": 0.014066135621621123,
+        "yaw": 0.0830614300497734,
+        "height_range": 0.0009765625,
+        "bend": 0.173828125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 320,
+      "source_motion_id": 6641,
+      "source_start_step": 0,
+      "frames": 451,
+      "category": "locomotion",
+      "features": {
+        "left": 0.33786119733537945,
+        "right": 0.26426478794642855,
+        "travel": 2.6811222428337853,
+        "yaw": 2.8873315201918177,
+        "height_range": 0.04150390625,
+        "bend": 0.26551055908203125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 84,
+      "source_motion_id": 84,
+      "source_start_step": 0,
+      "frames": 290,
+      "category": "crouch",
+      "features": {
+        "left": 0.5828595842633929,
+        "right": 0.41383143833705355,
+        "travel": 0.28601614099959816,
+        "yaw": 0.7546263730935354,
+        "height_range": 0.23828125,
+        "bend": 0.26263427734375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 217,
+      "source_motion_id": 4421,
+      "source_start_step": 0,
+      "frames": 646,
+      "category": "yaw",
+      "features": {
+        "left": 1.2685938051768713,
+        "right": 1.173126220703125,
+        "travel": 0.06609362228248196,
+        "yaw": 0.7291368928939204,
+        "height_range": 0.00634765625,
+        "bend": 0.71484375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 207,
+      "source_motion_id": 4229,
+      "source_start_step": 0,
+      "frames": 756,
+      "category": "bend",
+      "features": {
+        "left": 1.6772635323660714,
+        "right": 1.6542271205357142,
+        "travel": 0.011155805455528361,
+        "yaw": 0.24091306353919084,
+        "height_range": 0.00341796875,
+        "bend": 0.685791015625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 287,
+      "source_motion_id": 5950,
+      "source_start_step": 0,
+      "frames": 256,
+      "category": "right_arm",
+      "features": {
+        "left": 0.7183249337332589,
+        "right": 1.5202462332589286,
+        "travel": 0.04054719656980299,
+        "yaw": 0.40429895711684116,
+        "height_range": 0.00732421875,
+        "bend": 0.30572509765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 206,
+      "source_motion_id": 4220,
+      "source_start_step": 0,
+      "frames": 541,
+      "category": "both_arms",
+      "features": {
+        "left": 1.0175116402762276,
+        "right": 1.1828526088169642,
+        "travel": 0.007144751039952648,
+        "yaw": 0.38461363931966674,
+        "height_range": 0.0068359375,
+        "bend": 0.17462158203125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 79,
+      "source_motion_id": 1552,
+      "source_start_step": 0,
+      "frames": 406,
+      "category": "locomotion",
+      "features": {
+        "left": 0.22315107073102677,
+        "right": 0.18247331891741073,
+        "travel": 1.9521560911544809,
+        "yaw": 0.3452785842312984,
+        "height_range": 0.056640625,
+        "bend": 0.22430419921875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 80,
+      "source_motion_id": 80,
+      "source_start_step": 0,
+      "frames": 463,
+      "category": "crouch",
+      "features": {
+        "left": 0.8416290283203125,
+        "right": 0.7894352504185268,
+        "travel": 0.01946810119316288,
+        "yaw": 0.13049150951924893,
+        "height_range": 0.519775390625,
+        "bend": 0.48077392578125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 200,
+      "source_motion_id": 4153,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "yaw",
+      "features": {
+        "left": 1.1470990862165178,
+        "right": 1.2521471296037947,
+        "travel": 0.3648908141614334,
+        "yaw": 0.9086424862551181,
+        "height_range": 0.029296875,
+        "bend": 0.548583984375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 4,
+      "source_motion_id": 81,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "bend",
+      "features": {
+        "left": 1.3385271344866072,
+        "right": 1.1405770438058036,
+        "travel": 0.04213148745935653,
+        "yaw": 0.31561646079250827,
+        "height_range": 0.03564453125,
+        "bend": 0.5302734375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 265,
+      "source_motion_id": 5615,
+      "source_start_step": 0,
+      "frames": 261,
+      "category": "right_arm",
+      "features": {
+        "left": 0.19179861886160715,
+        "right": 0.9194859095982143,
+        "travel": 0.0064792304589823295,
+        "yaw": 0.0880460378120449,
+        "height_range": 0.009765625,
+        "bend": 0.19244384765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 44,
+      "source_motion_id": 878,
+      "source_start_step": 0,
+      "frames": 386,
+      "category": "both_arms",
+      "features": {
+        "left": 0.79095458984375,
+        "right": 1.1884089878627233,
+        "travel": 0.1146103441487365,
+        "yaw": 0.2775387374003855,
+        "height_range": 0.09619140625,
+        "bend": 0.29632568359375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 91,
+      "source_motion_id": 1933,
+      "source_start_step": 0,
+      "frames": 331,
+      "category": "locomotion",
+      "features": {
+        "left": 0.28365652901785715,
+        "right": 0.15725925990513392,
+        "travel": 1.7539521956850863,
+        "yaw": 1.7882479535384879,
+        "height_range": 0.04345703125,
+        "bend": 0.1421661376953125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 58,
+      "source_motion_id": 58,
+      "source_start_step": 0,
+      "frames": 794,
+      "category": "crouch",
+      "features": {
+        "left": 0.13484409877232142,
+        "right": 0.15143258231026785,
+        "travel": 0.027684557188937156,
+        "yaw": 0.0887446101081959,
+        "height_range": 0.0205078125,
+        "bend": 0.0738525390625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 195,
+      "source_motion_id": 4005,
+      "source_start_step": 0,
+      "frames": 431,
+      "category": "yaw",
+      "features": {
+        "left": 0.5947222028459821,
+        "right": 0.5155748639787946,
+        "travel": 0.40661612962752314,
+        "yaw": 6.018545941845889,
+        "height_range": 0.05322265625,
+        "bend": 0.29730224609375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 118,
+      "source_motion_id": 2369,
+      "source_start_step": 0,
+      "frames": 316,
+      "category": "bend",
+      "features": {
+        "left": 0.7577296665736607,
+        "right": 0.6718401227678571,
+        "travel": 0.010019367543866715,
+        "yaw": 0.32653533020708014,
+        "height_range": 0.01171875,
+        "bend": 0.5623779296875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 31,
+      "source_motion_id": 644,
+      "source_start_step": 0,
+      "frames": 331,
+      "category": "right_arm",
+      "features": {
+        "left": 0.5168326241629464,
+        "right": 1.2554190499441964,
+        "travel": 0.06723961610864677,
+        "yaw": 0.4994051788657443,
+        "height_range": 0.03564453125,
+        "bend": 0.25177001953125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 138,
+      "source_motion_id": 3062,
+      "source_start_step": 0,
+      "frames": 576,
+      "category": "both_arms",
+      "features": {
+        "left": 0.8332388741629464,
+        "right": 0.9061235700334821,
+        "travel": 0.007980397736657747,
+        "yaw": 0.1340469711755965,
+        "height_range": 0.00634765625,
+        "bend": 0.29901123046875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 241,
+      "source_motion_id": 5013,
+      "source_start_step": 0,
+      "frames": 646,
+      "category": "locomotion",
+      "features": {
+        "left": 0.31526620047433035,
+        "right": 0.2554408482142857,
+        "travel": 1.874218841590895,
+        "yaw": 3.087453749206065,
+        "height_range": 0.05126953125,
+        "bend": 0.2127685546875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 43,
+      "source_motion_id": 43,
+      "source_start_step": 0,
+      "frames": 411,
+      "category": "crouch",
+      "features": {
+        "left": 0.09809221540178571,
+        "right": 0.06873430524553571,
+        "travel": 0.009338868196920778,
+        "yaw": 0.04566601295622541,
+        "height_range": 0.0185546875,
+        "bend": 0.053619384765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 23,
+      "source_motion_id": 483,
+      "source_start_step": 0,
+      "frames": 541,
+      "category": "yaw",
+      "features": {
+        "left": 1.10357666015625,
+        "right": 1.2176470075334822,
+        "travel": 0.044179148552674054,
+        "yaw": 1.4052717345542052,
+        "height_range": 0.02490234375,
+        "bend": 0.2904052734375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 214,
+      "source_motion_id": 4386,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "bend",
+      "features": {
+        "left": 0.6780308314732143,
+        "right": 0.7753756386893136,
+        "travel": 0.05222678496171454,
+        "yaw": 0.47024403681150545,
+        "height_range": 0.00927734375,
+        "bend": 0.3589591979980469
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 142,
+      "source_motion_id": 3094,
+      "source_start_step": 0,
+      "frames": 326,
+      "category": "right_arm",
+      "features": {
+        "left": 0.21819084031241281,
+        "right": 0.6430925641741071,
+        "travel": 0.004328877315554325,
+        "yaw": 0.08427778669740027,
+        "height_range": 0.001953125,
+        "bend": 0.12384796142578125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 168,
+      "source_motion_id": 3588,
+      "source_start_step": 0,
+      "frames": 256,
+      "category": "both_arms",
+      "features": {
+        "left": 0.29466465541294645,
+        "right": 0.23058646065848215,
+        "travel": 0.25788473793389677,
+        "yaw": 0.45097209585886633,
+        "height_range": 0.021484375,
+        "bend": 0.17906951904296875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 158,
+      "source_motion_id": 3458,
+      "source_start_step": 0,
+      "frames": 351,
+      "category": "locomotion",
+      "features": {
+        "left": 0.30974905831473215,
+        "right": 0.31912449428013395,
+        "travel": 1.805780517387852,
+        "yaw": 1.866412136829044,
+        "height_range": 0.0849609375,
+        "bend": 0.37939453125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 3,
+      "source_motion_id": 3,
+      "source_start_step": 0,
+      "frames": 360,
+      "category": "crouch",
+      "features": {
+        "left": 1.0997837611607142,
+        "right": 0.9306291852678571,
+        "travel": 0.01984408890817746,
+        "yaw": 0.5355099470461855,
+        "height_range": 0.12646484375,
+        "bend": 0.619140625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 277,
+      "source_motion_id": 5849,
+      "source_start_step": 0,
+      "frames": 426,
+      "category": "yaw",
+      "features": {
+        "left": 0.44449288504464285,
+        "right": 0.34567696707589285,
+        "travel": 0.06342406348529361,
+        "yaw": 0.5213812785664695,
+        "height_range": 0.12109375,
+        "bend": 0.3768310546875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 55,
+      "source_motion_id": 965,
+      "source_start_step": 0,
+      "frames": 371,
+      "category": "bend",
+      "features": {
+        "left": 1.10003662109375,
+        "right": 0.7960989815848214,
+        "travel": 0.08227374361014043,
+        "yaw": 0.33941401725386644,
+        "height_range": 0.05078125,
+        "bend": 0.411376953125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 28,
+      "source_motion_id": 564,
+      "source_start_step": 0,
+      "frames": 326,
+      "category": "right_arm",
+      "features": {
+        "left": 0.5243181501116071,
+        "right": 1.1837027413504464,
+        "travel": 0.018077579471308006,
+        "yaw": 0.3533981575159344,
+        "height_range": 0.03515625,
+        "bend": 0.188140869140625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 271,
+      "source_motion_id": 5745,
+      "source_start_step": 0,
+      "frames": 341,
+      "category": "both_arms",
+      "features": {
+        "left": 1.0113589082445418,
+        "right": 1.0322788783482142,
+        "travel": 0.033458279794043075,
+        "yaw": 0.1332567423006661,
+        "height_range": 0.125,
+        "bend": 0.3345947265625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 165,
+      "source_motion_id": 3519,
+      "source_start_step": 0,
+      "frames": 266,
+      "category": "locomotion",
+      "features": {
+        "left": 0.3351048060825893,
+        "right": 0.3484442574637277,
+        "travel": 2.559416660440205,
+        "yaw": 0.4739697160263985,
+        "height_range": 0.06494140625,
+        "bend": 0.25152587890625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 52,
+      "source_motion_id": 52,
+      "source_start_step": 0,
+      "frames": 296,
+      "category": "crouch",
+      "features": {
+        "left": 0.21782575334821427,
+        "right": 0.22384425571986608,
+        "travel": 0.1890273101821431,
+        "yaw": 0.6890107832474666,
+        "height_range": 0.13916015625,
+        "bend": 0.5396728515625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 342,
+      "source_motion_id": 7025,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "yaw",
+      "features": {
+        "left": 0.2720808301653181,
+        "right": 0.2540506635393415,
+        "travel": 0.10289684274694795,
+        "yaw": 19.019381052186024,
+        "height_range": 0.05615234375,
+        "bend": 0.4322509765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 66,
+      "source_motion_id": 1239,
+      "source_start_step": 0,
+      "frames": 556,
+      "category": "bend",
+      "features": {
+        "left": 1.1121812547956194,
+        "right": 1.0724233899797713,
+        "travel": 0.07230904924085303,
+        "yaw": 0.19668724261652093,
+        "height_range": 0.04052734375,
+        "bend": 0.368408203125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 258,
+      "source_motion_id": 5408,
+      "source_start_step": 0,
+      "frames": 261,
+      "category": "right_arm",
+      "features": {
+        "left": 0.16595458984375,
+        "right": 0.911224365234375,
+        "travel": 0.0024679891816579273,
+        "yaw": 0.04720991118780171,
+        "height_range": 0.001953125,
+        "bend": 0.07288360595703125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 204,
+      "source_motion_id": 4207,
+      "source_start_step": 0,
+      "frames": 951,
+      "category": "both_arms",
+      "features": {
+        "left": 1.1284354073660714,
+        "right": 1.1202314921787806,
+        "travel": 0.008944852600602375,
+        "yaw": 0.16212362153294038,
+        "height_range": 0.00537109375,
+        "bend": 0.301910400390625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 378,
+      "source_motion_id": 7891,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "locomotion",
+      "features": {
+        "left": 0.30147552490234375,
+        "right": 0.2216796875,
+        "travel": 0.99818494106789,
+        "yaw": 5.358754481004237,
+        "height_range": 0.04150390625,
+        "bend": 0.27423095703125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 57,
+      "source_motion_id": 57,
+      "source_start_step": 0,
+      "frames": 575,
+      "category": "crouch",
+      "features": {
+        "left": 0.10818045479910714,
+        "right": 0.1496515018599374,
+        "travel": 0.01975656655819448,
+        "yaw": 0.04629849953285914,
+        "height_range": 0.01318359375,
+        "bend": 0.04443359375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 136,
+      "source_motion_id": 3037,
+      "source_start_step": 0,
+      "frames": 361,
+      "category": "yaw",
+      "features": {
+        "left": 0.8823460170200893,
+        "right": 0.9254150390625,
+        "travel": 0.027473708185718912,
+        "yaw": 1.1682906722614863,
+        "height_range": 0.01123046875,
+        "bend": 0.38775634765625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 106,
+      "source_motion_id": 2170,
+      "source_start_step": 0,
+      "frames": 286,
+      "category": "bend",
+      "features": {
+        "left": 0.7279777526855469,
+        "right": 0.6885027204241071,
+        "travel": 0.01899240435350968,
+        "yaw": 0.20765600124514405,
+        "height_range": 0.0068359375,
+        "bend": 0.373321533203125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 21,
+      "source_motion_id": 424,
+      "source_start_step": 0,
+      "frames": 456,
+      "category": "right_arm",
+      "features": {
+        "left": 0.5827723911830357,
+        "right": 1.237748282296317,
+        "travel": 0.02295287209711332,
+        "yaw": 0.4783777652390453,
+        "height_range": 0.029296875,
+        "bend": 0.3413238525390625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 280,
+      "source_motion_id": 5885,
+      "source_start_step": 0,
+      "frames": 411,
+      "category": "both_arms",
+      "features": {
+        "left": 0.29951695033482145,
+        "right": 0.28093392508370535,
+        "travel": 0.08839653561147968,
+        "yaw": 0.3403959767098128,
+        "height_range": 0.06787109375,
+        "bend": 0.18798828125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 185,
+      "source_motion_id": 3821,
+      "source_start_step": 0,
+      "frames": 331,
+      "category": "locomotion",
+      "features": {
+        "left": 0.21913364955357142,
+        "right": 0.30577305385044645,
+        "travel": 1.8549408171638966,
+        "yaw": 1.8679441521193958,
+        "height_range": 0.06884765625,
+        "bend": 0.48333740234375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 54,
+      "source_motion_id": 54,
+      "source_start_step": 0,
+      "frames": 481,
+      "category": "crouch",
+      "features": {
+        "left": 0.17614092145647323,
+        "right": 0.36999075753348215,
+        "travel": 0.015339601145308005,
+        "yaw": 0.07025576229574115,
+        "height_range": 0.0419921875,
+        "bend": 0.09539794921875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 49,
+      "source_motion_id": 916,
+      "source_start_step": 0,
+      "frames": 491,
+      "category": "yaw",
+      "features": {
+        "left": 1.395536150251116,
+        "right": 2.3346470424107144,
+        "travel": 0.043697274423202016,
+        "yaw": 0.9847753978448712,
+        "height_range": 0.05224609375,
+        "bend": 0.67578125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 202,
+      "source_motion_id": 4200,
+      "source_start_step": 0,
+      "frames": 351,
+      "category": "bend",
+      "features": {
+        "left": 0.8705313546316964,
+        "right": 1.8130296979631697,
+        "travel": 0.006785746023695962,
+        "yaw": 0.3727318405307477,
+        "height_range": 0.01611328125,
+        "bend": 0.383514404296875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 256,
+      "source_motion_id": 5354,
+      "source_start_step": 0,
+      "frames": 306,
+      "category": "both_arms",
+      "features": {
+        "left": 0.9956030164446149,
+        "right": 1.0466744559151786,
+        "travel": 0.09225815959676233,
+        "yaw": 0.16506296663853837,
+        "height_range": 0.12060546875,
+        "bend": 0.33251953125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 177,
+      "source_motion_id": 3664,
+      "source_start_step": 0,
+      "frames": 956,
+      "category": "locomotion",
+      "features": {
+        "left": 0.9290684291294643,
+        "right": 1.0151628766741072,
+        "travel": 0.930081950984489,
+        "yaw": 2.546434490846844,
+        "height_range": 0.03662109375,
+        "bend": 0.75439453125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 61,
+      "source_motion_id": 61,
+      "source_start_step": 0,
+      "frames": 304,
+      "category": "crouch",
+      "features": {
+        "left": 0.30637032645089285,
+        "right": 0.47511073521205355,
+        "travel": 0.45015057757331406,
+        "yaw": 1.1219617885304016,
+        "height_range": 0.109375,
+        "bend": 0.427490234375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 116,
+      "source_motion_id": 2323,
+      "source_start_step": 0,
+      "frames": 316,
+      "category": "yaw",
+      "features": {
+        "left": 1.5990426199776786,
+        "right": 0.581007821219308,
+        "travel": 0.05844047336819924,
+        "yaw": 1.014613160629025,
+        "height_range": 0.09521484375,
+        "bend": 0.6085205078125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 110,
+      "source_motion_id": 2235,
+      "source_start_step": 0,
+      "frames": 336,
+      "category": "bend",
+      "features": {
+        "left": 0.6902890886579242,
+        "right": 0.6761605398995536,
+        "travel": 0.008279077823078154,
+        "yaw": 0.1541953610542841,
+        "height_range": 0.00634765625,
+        "bend": 0.41571044921875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 143,
+      "source_motion_id": 3118,
+      "source_start_step": 0,
+      "frames": 496,
+      "category": "both_arms",
+      "features": {
+        "left": 0.8109239850725446,
+        "right": 0.7912248883928571,
+        "travel": 0.012805090449444797,
+        "yaw": 0.0632764657421454,
+        "height_range": 0.00146484375,
+        "bend": 0.16534423828125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 368,
+      "source_motion_id": 7623,
+      "source_start_step": 0,
+      "frames": 366,
+      "category": "locomotion",
+      "features": {
+        "left": 0.23488616943359375,
+        "right": 0.23660714285714285,
+        "travel": 2.0402625633949523,
+        "yaw": 3.0233696899645834,
+        "height_range": 0.04931640625,
+        "bend": 0.217041015625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 50,
+      "source_motion_id": 50,
+      "source_start_step": 0,
+      "frames": 261,
+      "category": "crouch",
+      "features": {
+        "left": 0.24585178920200892,
+        "right": 0.24001639229910715,
+        "travel": 0.1829751021099418,
+        "yaw": 0.722853572952914,
+        "height_range": 0.1168212890625,
+        "bend": 0.5330810546875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 169,
+      "source_motion_id": 3597,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "yaw",
+      "features": {
+        "left": 1.2326463971819197,
+        "right": 0.8364453996930804,
+        "travel": 0.3712452027303115,
+        "yaw": 1.4846577577794031,
+        "height_range": 0.05712890625,
+        "bend": 0.7506103515625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 213,
+      "source_motion_id": 4368,
+      "source_start_step": 0,
+      "frames": 626,
+      "category": "bend",
+      "features": {
+        "left": 1.277435302734375,
+        "right": 1.3821498325892858,
+        "travel": 0.06384277379909979,
+        "yaw": 0.29944772830509936,
+        "height_range": 0.021484375,
+        "bend": 0.55999755859375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 290,
+      "source_motion_id": 6049,
+      "source_start_step": 0,
+      "frames": 281,
+      "category": "both_arms",
+      "features": {
+        "left": 0.6929103306361607,
+        "right": 0.6278599330357143,
+        "travel": 0.01899963462788168,
+        "yaw": 0.0536512307488326,
+        "height_range": 0.00439453125,
+        "bend": 0.1656341552734375
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 155,
+      "source_motion_id": 3415,
+      "source_start_step": 0,
+      "frames": 366,
+      "category": "locomotion",
+      "features": {
+        "left": 0.3070155552455357,
+        "right": 0.23076738630022323,
+        "travel": 2.0647081057058836,
+        "yaw": 1.8656784579492065,
+        "height_range": 0.0673828125,
+        "bend": 0.2890625
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "crouch_lowlevel/val",
+      "clip": 46,
+      "source_motion_id": 46,
+      "source_start_step": 0,
+      "frames": 371,
+      "category": "crouch",
+      "features": {
+        "left": 0.11240931919642858,
+        "right": 0.1108567374093192,
+        "travel": 0.006842238053726825,
+        "yaw": 0.061038026379619525,
+        "height_range": 0.07275390625,
+        "bend": 0.0772705078125
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 250,
+      "source_motion_id": 5217,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "yaw",
+      "features": {
+        "left": 1.9342258998325892,
+        "right": 1.670806884765625,
+        "travel": 0.09554531262228441,
+        "yaw": 0.542448534119722,
+        "height_range": 0.0341796875,
+        "bend": 0.57421875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 41,
+      "source_motion_id": 854,
+      "source_start_step": 0,
+      "frames": 496,
+      "category": "bend",
+      "features": {
+        "left": 1.1134076799665178,
+        "right": 1.1874128069196428,
+        "travel": 0.01817279658241858,
+        "yaw": 0.37447297263700996,
+        "height_range": 0.10009765625,
+        "bend": 0.7147216796875
+      }
+    },
+    {
+      "split": "validation",
+      "dataset": "passive_whole_body_full/val",
+      "clip": 140,
+      "source_motion_id": 3082,
+      "source_start_step": 0,
+      "frames": 411,
+      "category": "both_arms",
+      "features": {
+        "left": 0.7997981480189732,
+        "right": 0.8718087332589286,
+        "travel": 0.008123170856795703,
+        "yaw": 0.13618010878326547,
+        "height_range": 0.005859375,
+        "bend": 0.2745361328125
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 1993,
+      "source_motion_id": 1737,
+      "source_start_step": 0,
+      "frames": 480,
+      "category": "still",
+      "features": {
+        "left": 0.05139378138950893,
+        "right": 0.03525652204241071,
+        "travel": 0.003391549599517464,
+        "yaw": 0.11482437580544924,
+        "height_range": 0.00244140625,
+        "bend": 0.0552825927734375
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 6495,
+      "source_motion_id": 5783,
+      "source_start_step": 0,
+      "frames": 311,
+      "category": "left_arm",
+      "features": {
+        "left": 0.7386431012834821,
+        "right": 0.2103167942592076,
+        "travel": 0.00762470601978193,
+        "yaw": 0.1137507601218144,
+        "height_range": 0.0078125,
+        "bend": 0.0863037109375
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 2019,
+      "source_motion_id": 1756,
+      "source_start_step": 0,
+      "frames": 936,
+      "category": "right_arm",
+      "features": {
+        "left": 0.36583382742745535,
+        "right": 0.9235970633370536,
+        "travel": 0.008310963892531727,
+        "yaw": 0.11942283516398255,
+        "height_range": 0.005859375,
+        "bend": 0.260009765625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 6666,
+      "source_motion_id": 5951,
+      "source_start_step": 0,
+      "frames": 256,
+      "category": "both_arms",
+      "features": {
+        "left": 0.7434648786272321,
+        "right": 0.632371085030692,
+        "travel": 0.013868057385716583,
+        "yaw": 0.05663880955939171,
+        "height_range": 0.00439453125,
+        "bend": 0.15081787109375
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 4751,
+      "source_motion_id": 4124,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "locomotion",
+      "features": {
+        "left": 0.37750244140625,
+        "right": 0.39365931919642855,
+        "travel": 1.2415886777073026,
+        "yaw": 8.202320384745363,
+        "height_range": 0.04248046875,
+        "bend": 0.3221435546875
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "crouch_lowlevel/train",
+      "clip": 200,
+      "source_motion_id": 200,
+      "source_start_step": 0,
+      "frames": 411,
+      "category": "crouch",
+      "features": {
+        "left": 0.08026559012276786,
+        "right": 0.08285740443638392,
+        "travel": 0.004288911229673834,
+        "yaw": 0.05112662803162338,
+        "height_range": 0.029296875,
+        "bend": 0.15179443359375
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 609,
+      "source_motion_id": 576,
+      "source_start_step": 0,
+      "frames": 341,
+      "category": "yaw",
+      "features": {
+        "left": 0.5303519112723214,
+        "right": 1.0648193359375,
+        "travel": 0.46819118237244406,
+        "yaw": 0.8844924210975142,
+        "height_range": 0.05517578125,
+        "bend": 0.3577103614807129
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 304,
+      "source_motion_id": 314,
+      "source_start_step": 70,
+      "frames": 306,
+      "category": "bend",
+      "features": {
+        "left": 0.8782179696219308,
+        "right": 1.0369873046875,
+        "travel": 0.02721227235550061,
+        "yaw": 0.2948570775561099,
+        "height_range": 0.01611328125,
+        "bend": 0.555908203125
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 6309,
+      "source_motion_id": 5598,
+      "source_start_step": 0,
+      "frames": 286,
+      "category": "mixed",
+      "features": {
+        "left": 0.2088574000767299,
+        "right": 0.17484610421316965,
+        "travel": 0.04577571614120364,
+        "yaw": 0.17287402252397888,
+        "height_range": 0.021484375,
+        "bend": 0.29107666015625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 2015,
+      "source_motion_id": 1753,
+      "source_start_step": 0,
+      "frames": 340,
+      "category": "still",
+      "features": {
+        "left": 0.03932952880859375,
+        "right": 0.030596051897321428,
+        "travel": 0.0036779824610428486,
+        "yaw": 0.009669335664835632,
+        "height_range": 0.0009765625,
+        "bend": 0.0220947265625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 3668,
+      "source_motion_id": 3188,
+      "source_start_step": 0,
+      "frames": 541,
+      "category": "left_arm",
+      "features": {
+        "left": 0.7137276785714286,
+        "right": 0.21406773158482142,
+        "travel": 0.025995039206012066,
+        "yaw": 0.09359492267536451,
+        "height_range": 0.001953125,
+        "bend": 0.12210845947265625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 6552,
+      "source_motion_id": 5837,
+      "source_start_step": 0,
+      "frames": 256,
+      "category": "right_arm",
+      "features": {
+        "left": 0.16139003208705358,
+        "right": 1.1464582170758928,
+        "travel": 0.006100089258830983,
+        "yaw": 0.08491639028950781,
+        "height_range": 0.00244140625,
+        "bend": 0.2012939453125
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 5935,
+      "source_motion_id": 5247,
+      "source_start_step": 380,
+      "frames": 446,
+      "category": "both_arms",
+      "features": {
+        "left": 1.3006504603794642,
+        "right": 0.7933393205915179,
+        "travel": 0.19164153218297614,
+        "yaw": 0.2610577875263722,
+        "height_range": 0.02099609375,
+        "bend": 0.25347900390625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 2887,
+      "source_motion_id": 2513,
+      "source_start_step": 0,
+      "frames": 296,
+      "category": "locomotion",
+      "features": {
+        "left": 0.7210693359375,
+        "right": 0.86962890625,
+        "travel": 0.8393557574653663,
+        "yaw": 0.31438791544213274,
+        "height_range": 0.06396484375,
+        "bend": 0.55523681640625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "crouch_lowlevel/train",
+      "clip": 259,
+      "source_motion_id": 259,
+      "source_start_step": 0,
+      "frames": 313,
+      "category": "crouch",
+      "features": {
+        "left": 0.10792977469308036,
+        "right": 0.14731270926339285,
+        "travel": 0.23878386128803386,
+        "yaw": 0.6321668344390219,
+        "height_range": 0.08837890625,
+        "bend": 0.060089111328125
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 8191,
+      "source_motion_id": 7794,
+      "source_start_step": 0,
+      "frames": 800,
+      "category": "yaw",
+      "features": {
+        "left": 0.2689307076590402,
+        "right": 0.22857448032924108,
+        "travel": 0.11374730498827305,
+        "yaw": 6.53745472868434,
+        "height_range": 0.046875,
+        "bend": 0.32183837890625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 285,
+      "source_motion_id": 297,
+      "source_start_step": 120,
+      "frames": 691,
+      "category": "bend",
+      "features": {
+        "left": 0.8084237234933036,
+        "right": 1.4545113699776786,
+        "travel": 0.018582682132949262,
+        "yaw": 0.23696370556682056,
+        "height_range": 0.01953125,
+        "bend": 0.4836540222167969
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 1611,
+      "source_motion_id": 1422,
+      "source_start_step": 0,
+      "frames": 360,
+      "category": "mixed",
+      "features": {
+        "left": 0.051319667271205356,
+        "right": 0.04852403913225446,
+        "travel": 0.011492086206980785,
+        "yaw": 0.01243023117165798,
+        "height_range": 0.00244140625,
+        "bend": 0.052337646484375
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 1902,
+      "source_motion_id": 1666,
+      "source_start_step": 0,
+      "frames": 480,
+      "category": "still",
+      "features": {
+        "left": 0.051722935267857144,
+        "right": 0.035098484584263394,
+        "travel": 0.0038726215313060718,
+        "yaw": 0.11618347190135703,
+        "height_range": 0.00244140625,
+        "bend": 0.05948638916015625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 3543,
+      "source_motion_id": 3071,
+      "source_start_step": 0,
+      "frames": 341,
+      "category": "left_arm",
+      "features": {
+        "left": 0.7312709263392857,
+        "right": 0.20049176897321427,
+        "travel": 0.010705974211151555,
+        "yaw": 0.09552721210513782,
+        "height_range": 0.001953125,
+        "bend": 0.13694000244140625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 2952,
+      "source_motion_id": 2572,
+      "source_start_step": 0,
+      "frames": 536,
+      "category": "right_arm",
+      "features": {
+        "left": 0.18725149972098215,
+        "right": 1.250058855329241,
+        "travel": 0.013230487777374516,
+        "yaw": 0.08367417017501699,
+        "height_range": 0.0029296875,
+        "bend": 0.22860336303710938
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 463,
+      "source_motion_id": 448,
+      "source_start_step": 0,
+      "frames": 511,
+      "category": "both_arms",
+      "features": {
+        "left": 0.9181605747767857,
+        "right": 0.9907052176339286,
+        "travel": 0.06702164336666225,
+        "yaw": 0.40546074531444853,
+        "height_range": 0.0361328125,
+        "bend": 0.2685546875
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 7259,
+      "source_motion_id": 6686,
+      "source_start_step": 0,
+      "frames": 1000,
+      "category": "locomotion",
+      "features": {
+        "left": 0.2938199724469866,
+        "right": 0.299163818359375,
+        "travel": 0.8767607548002117,
+        "yaw": 5.111342175902767,
+        "height_range": 0.041015625,
+        "bend": 0.40472412109375
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "crouch_lowlevel/train",
+      "clip": 238,
+      "source_motion_id": 238,
+      "source_start_step": 0,
+      "frames": 794,
+      "category": "crouch",
+      "features": {
+        "left": 0.04670933314732143,
+        "right": 0.04849176747458322,
+        "travel": 0.024767823876729995,
+        "yaw": 0.13478148407658663,
+        "height_range": 0.01171875,
+        "bend": 0.11809539794921875
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 3450,
+      "source_motion_id": 2995,
+      "source_start_step": 120,
+      "frames": 516,
+      "category": "yaw",
+      "features": {
+        "left": 0.6938280378069196,
+        "right": 0.7404905046735492,
+        "travel": 0.05377363709526929,
+        "yaw": 0.6379948603994485,
+        "height_range": 0.0986328125,
+        "bend": 0.2781982421875
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 558,
+      "source_motion_id": 531,
+      "source_start_step": 0,
+      "frames": 486,
+      "category": "bend",
+      "features": {
+        "left": 1.3761509486607142,
+        "right": 1.3383265904017858,
+        "travel": 0.018394393082167847,
+        "yaw": 0.2737176485576125,
+        "height_range": 0.10791015625,
+        "bend": 0.4337158203125
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 6883,
+      "source_motion_id": 6155,
+      "source_start_step": 220,
+      "frames": 366,
+      "category": "mixed",
+      "features": {
+        "left": 0.14536939348493302,
+        "right": 0.14336422511509486,
+        "travel": 0.31753528169687484,
+        "yaw": 0.3700069370813368,
+        "height_range": 0.04150390625,
+        "bend": 0.2005615234375
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 4451,
+      "source_motion_id": 3869,
+      "source_start_step": 0,
+      "frames": 400,
+      "category": "still",
+      "features": {
+        "left": 0.010683332170758928,
+        "right": 0.011710030691964286,
+        "travel": 0.0010339396636094638,
+        "yaw": 0.008270198192937617,
+        "height_range": 0.0,
+        "bend": 0.01287841796875
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 3566,
+      "source_motion_id": 3095,
+      "source_start_step": 0,
+      "frames": 386,
+      "category": "left_arm",
+      "features": {
+        "left": 0.9571271623883929,
+        "right": 0.21181815011160715,
+        "travel": 0.013832317065584484,
+        "yaw": 0.08259437041293749,
+        "height_range": 0.001953125,
+        "bend": 0.22711181640625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 6469,
+      "source_motion_id": 5755,
+      "source_start_step": 0,
+      "frames": 256,
+      "category": "right_arm",
+      "features": {
+        "left": 0.19954572405133927,
+        "right": 1.0545697893415178,
+        "travel": 0.009269827039449733,
+        "yaw": 0.3098716684907761,
+        "height_range": 0.06787109375,
+        "bend": 0.2657127380371094
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 1042,
+      "source_motion_id": 937,
+      "source_start_step": 120,
+      "frames": 600,
+      "category": "both_arms",
+      "features": {
+        "left": 0.6925310407366071,
+        "right": 0.4549473353794643,
+        "travel": 0.011825236654433807,
+        "yaw": 0.2994367493933656,
+        "height_range": 0.025390625,
+        "bend": 0.31304931640625
+      }
+    },
+    {
+      "split": "train_diagnostic",
+      "dataset": "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset",
+      "clip": 5437,
+      "source_motion_id": 4749,
+      "source_start_step": 0,
+      "frames": 780,
+      "category": "locomotion",
+      "features": {
+        "left": 0.17659957068307058,
+        "right": 0.15238543919154576,
+        "travel": 0.8229937014356135,
+        "yaw": 4.376399184718628,
+        "height_range": 0.048828125,
+        "bend": 0.345458984375
+      }
+    }
+  ],
+  "source_meta_sha256": {
+    "passive_whole_body_full/val": "15416fc3a2c074c6583914aa3afe0c732883f7c8e8db16f98d0c754604bf19bd",
+    "crouch_lowlevel/val": "b3206c94619f5d2069ae71afa27762eb145e641fd5736a1d665de634f3080b30",
+    "../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset": "a6f55b6f0061123c623cf55dd205c106d8abd873de84cc67e233ce81e3a5d557",
+    "crouch_lowlevel/train": "9e34e9643935bd2d0a5e08ffcfd9aa19ea3739aa2b77eade3001705924d3b042"
+  },
+  "available_categories": {
+    "validation": {
+      "still": 0,
+      "left_arm": 3,
+      "right_arm": 17,
+      "both_arms": 50,
+      "locomotion": 181,
+      "crouch": 35,
+      "yaw": 88,
+      "bend": 44,
+      "mixed": 7
+    },
+    "train_diagnostic": {
+      "still": 15,
+      "left_arm": 108,
+      "right_arm": 305,
+      "both_arms": 806,
+      "locomotion": 2846,
+      "crouch": 117,
+      "yaw": 1209,
+      "bend": 634,
+      "mixed": 76
+    }
+  },
+  "provenance": "validation is a dataset split, not proof of source-recording disjointness; AMASS original recording IDs unavailable",
+  "behavior": {
+    "cases": [
+      {
+        "name": "left_ee_forward",
+        "group": "ee",
+        "side": "left",
+        "direction": [
+          1,
+          0,
+          0
+        ],
+        "loads": [
+          [
+            "left_hand_mimic",
+            [
+              1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "left_ee_backward",
+        "group": "ee",
+        "side": "left",
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "loads": [
+          [
+            "left_hand_mimic",
+            [
+              -1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "left_ee_left",
+        "group": "ee",
+        "side": "left",
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "loads": [
+          [
+            "left_hand_mimic",
+            [
+              0,
+              1,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "left_ee_right",
+        "group": "ee",
+        "side": "left",
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "loads": [
+          [
+            "left_hand_mimic",
+            [
+              0,
+              -1,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "left_ee_up",
+        "group": "ee",
+        "side": "left",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "loads": [
+          [
+            "left_hand_mimic",
+            [
+              0,
+              0,
+              1
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "left_ee_down",
+        "group": "ee",
+        "side": "left",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "loads": [
+          [
+            "left_hand_mimic",
+            [
+              0,
+              0,
+              -1
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "right_ee_forward",
+        "group": "ee",
+        "side": "right",
+        "direction": [
+          1,
+          0,
+          0
+        ],
+        "loads": [
+          [
+            "right_hand_mimic",
+            [
+              1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "right_ee_backward",
+        "group": "ee",
+        "side": "right",
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "loads": [
+          [
+            "right_hand_mimic",
+            [
+              -1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "right_ee_left",
+        "group": "ee",
+        "side": "right",
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "loads": [
+          [
+            "right_hand_mimic",
+            [
+              0,
+              1,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "right_ee_right",
+        "group": "ee",
+        "side": "right",
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "loads": [
+          [
+            "right_hand_mimic",
+            [
+              0,
+              -1,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "right_ee_up",
+        "group": "ee",
+        "side": "right",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "loads": [
+          [
+            "right_hand_mimic",
+            [
+              0,
+              0,
+              1
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "right_ee_down",
+        "group": "ee",
+        "side": "right",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "loads": [
+          [
+            "right_hand_mimic",
+            [
+              0,
+              0,
+              -1
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "root_forward",
+        "group": "locomotion",
+        "direction": [
+          1,
+          0,
+          0
+        ],
+        "loads": [
+          [
+            "pelvis",
+            [
+              1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "root_backward",
+        "group": "locomotion",
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "loads": [
+          [
+            "pelvis",
+            [
+              -1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "root_left",
+        "group": "locomotion",
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "loads": [
+          [
+            "pelvis",
+            [
+              0,
+              1,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "root_right",
+        "group": "locomotion",
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "loads": [
+          [
+            "pelvis",
+            [
+              0,
+              -1,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "crouch",
+        "group": "crouch",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "loads": [
+          [
+            "pelvis",
+            [
+              0,
+              0,
+              -1
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "yaw_left",
+        "group": "yaw",
+        "sign": 1,
+        "loads": [
+          [
+            "left_shoulder_roll_link",
+            [
+              -1,
+              0,
+              0
+            ]
+          ],
+          [
+            "right_shoulder_roll_link",
+            [
+              1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "yaw_right",
+        "group": "yaw",
+        "sign": -1,
+        "loads": [
+          [
+            "left_shoulder_roll_link",
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          [
+            "right_shoulder_roll_link",
+            [
+              -1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "bend_forward",
+        "group": "bend",
+        "axis": 1,
+        "sign": 1,
+        "offsets": {
+          "torso_link": [
+            0.0,
+            0.0,
+            0.25
+          ]
+        },
+        "loads": [
+          [
+            "torso_link",
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          [
+            "pelvis",
+            [
+              -1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "bend_backward",
+        "group": "bend",
+        "axis": 1,
+        "sign": -1,
+        "offsets": {
+          "torso_link": [
+            0.0,
+            0.0,
+            0.25
+          ]
+        },
+        "loads": [
+          [
+            "torso_link",
+            [
+              -1,
+              0,
+              0
+            ]
+          ],
+          [
+            "pelvis",
+            [
+              1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "bend_left",
+        "group": "bend",
+        "axis": 0,
+        "sign": -1,
+        "offsets": {
+          "torso_link": [
+            0.0,
+            0.0,
+            0.25
+          ]
+        },
+        "loads": [
+          [
+            "torso_link",
+            [
+              0,
+              1,
+              0
+            ]
+          ],
+          [
+            "pelvis",
+            [
+              0,
+              -1,
+              0
+            ]
+          ]
+        ]
+      },
+      {
+        "name": "bend_right",
+        "group": "bend",
+        "axis": 0,
+        "sign": 1,
+        "offsets": {
+          "torso_link": [
+            0.0,
+            0.0,
+            0.25
+          ]
+        },
+        "loads": [
+          [
+            "torso_link",
+            [
+              0,
+              -1,
+              0
+            ]
+          ],
+          [
+            "pelvis",
+            [
+              0,
+              1,
+              0
+            ]
+          ]
+        ]
+      }
+    ],
+    "magnitudes_N": [
+      5,
+      10,
+      20
+    ],
+    "repeats": 5,
+    "seconds": 12,
+    "ramp": [
+      2,
+      3,
+      7,
+      8
+    ],
+    "coordinate_frame": "initial heading, held fixed in world; loads at moving link origins",
+    "initial_joint_noise_rad": 0.003,
+    "fall_root_height_m": 0.3,
+    "fall_tilt_deg": 75
+  },
+  "video": {
+    "width": 960,
+    "height": 540,
+    "fps": 25,
+    "crf": 28,
+    "maxrate": "1200k",
+    "bufsize": "2400k"
+  }
+}

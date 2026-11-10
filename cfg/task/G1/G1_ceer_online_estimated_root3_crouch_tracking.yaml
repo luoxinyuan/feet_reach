@@ -1,0 +1,14 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3
+  - _self_
+name: G1CEEROnlineEstimatedRoot3CrouchTrackingCompliance
+command:
+  dataset:
+    mem_paths:
+      - ../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset
+      - crouch_lowlevel/train
+    path_weights: [1.0, 0.05]
+reward:
+  tracking:
+    ee_tracking: {weight: 2.0, enabled: true}

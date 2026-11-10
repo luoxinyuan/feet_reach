@@ -274,6 +274,9 @@ class _Env(EnvBase):
             self._stats_ema[group_name] = {}
 
             for key, params in func_specs.items():
+                params = dict(params) if params is not None else {}
+                if params.pop("enabled", True) is False:
+                    continue
                 reward: mdp.Reward = REW_FUNCS[key](self, **params)
                 funcs[key] = reward
                 reward_spec["stats", group_name, key] = UnboundedContinuous(1, device=self.device)

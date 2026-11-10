@@ -12,8 +12,11 @@ app:
   enable_cameras: ${..eval_render}
 
 total_frames: 4000_000_000
+resume_frames: 0
+phase_frames: ${total_frames}
 start_iter: 0
 eval_render: false
+skip_final_eval: false
 save_interval: 150
 seed: 0
 checkpoint_path: null

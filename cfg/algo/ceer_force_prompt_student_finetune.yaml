@@ -1,0 +1,10 @@
+# @package algo
+defaults:
+  - ceer_force_prompt_student
+  - _self_
+
+name: ceer_force_prompt_student_finetune
+phase: finetune
+lr: 1.0e-4
+entropy_coef_start: 0.002
+entropy_coef_end: 0.0005

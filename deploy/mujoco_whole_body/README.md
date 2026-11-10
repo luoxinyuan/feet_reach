@@ -99,6 +99,7 @@ Two additional interactive bundles are available:
 - `20261101-ceer-online-estimated-9pt/`: the trained 9-point online-estimated residual and causal force estimator.
 - `20261102-ceer-online-root3-no-ee-teacher/`: the 3-point GT-force teacher with EE tracking reward disabled; its MuJoCo observation ordering is corrected and verified stable.
 - `20261103-ceer-online-root3-crouch20-force-history/`: the 3-point GT-force teacher trained with 20% crouch data and six force-history samples (0, 1, 2, 4, 8 and 16 control steps ago).
+- `20261109-sonic-root3-crouch20-force-history/`: the evaluated SONIC low-level policy with the same 3-point force-history input and 20% crouch training mixture.
 
 Start either browser demo with:
 
@@ -108,6 +109,7 @@ python scripts/mujoco_whole_body_web.py --policy ceer-dense23 --port 8783
 python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --port 8784
 python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-no-ee-teacher --port 8787
 python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-crouch20-force-history --port 8788
+python scripts/mujoco_whole_body_web.py --policy sonic-root3-crouch20-force-history --port 8789
 ```
 
 The 3-point student receives the three applied forces in the root-local frame.

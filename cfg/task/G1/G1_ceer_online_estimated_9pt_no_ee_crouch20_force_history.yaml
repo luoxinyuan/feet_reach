@@ -1,0 +1,18 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_9pt_no_ee
+  - _self_
+name: G1CEEROnlineEstimated9PointNoEECrouch20ForceHistoryCompliance
+command:
+  force_prompt_history_offsets: [0, 1, 2, 4, 8, 16]
+  dataset:
+    # Keep the standard 9KP motion data and add the crouch set at 20% of resets.
+    mem_paths:
+      - passive_whole_body_full/train
+      - crouch_lowlevel/train
+    path_weights: [0.8, 0.2]
+observation:
+  force_gt_:
+    dense_force_gt:
+      enabled: false
+    dense_force_gt_history: {}

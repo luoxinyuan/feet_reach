@@ -1,0 +1,24 @@
+digraph G {
+graph [rankdir=LR,bgcolor="#ffffff",pad="0.35",nodesep="0.45",ranksep="0.65",fontname="DejaVu Sans",fontsize=20,labelloc=t];
+node [shape=box,style="rounded,filled",fillcolor="#e9f2ff",color="#4977a8",fontname="DejaVu Sans",fontsize=12,margin="0.16,0.12"];
+edge [color="#4d6278",fontname="DejaVu Sans",fontsize=10,arrowsize=0.8];
+label="D | Dense tracking + AMP motion-prior ablation";
+real [label="AMASS expert state pairs",fillcolor="#ede8ff"];
+fake [label="Robot rollout state pairs",fillcolor="#dcf5e7"];
+disc [label="Trainable discriminator\nexpert vs rollout/replay\nclassification + gradient penalty",fillcolor="#fff0d6"];
+style [label="AMP style reward",fillcolor="#fff0d6"];
+dense [label="Dense tracking reward",fillcolor="#fff0d6"];
+ppo [label="Residual PPO actor update",fillcolor="#fff0d6"];
+actor [label="Residual actor\nstate + GT force + own reference",fillcolor="#e9f2ff"];
+low [label="Reference integrator\n+ FROZEN CEER",fillcolor="#e5e7eb"];
+robot [label="Robot simulator",fillcolor="#dcf5e7"];
+real -> disc [label="real",style=dashed,color="#bd791f",constraint=false];
+fake -> disc [label="fake",style=dashed,color="#bd791f",constraint=false];
+disc -> style [label="score",style=dashed,color="#bd791f",constraint=false];
+style -> ppo [label="bonus (warm-up)",style=dashed,color="#bd791f",constraint=false];
+dense -> ppo [label="retained",style=dashed,color="#bd791f",constraint=false];
+ppo -> actor [label="update",style=dashed,color="#bd791f",constraint=false];
+actor -> low [label="residual"];
+low -> robot [label="action"];
+robot -> fake [label="",style=dashed,color="#bd791f",constraint=false];
+}

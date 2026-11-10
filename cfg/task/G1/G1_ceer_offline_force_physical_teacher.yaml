@@ -1,0 +1,7 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_offline_force_prompt_teacher
+  - _self_
+name: G1CEEROfflineForcePhysicalTeacher
+command:
+  physical_guidance: true

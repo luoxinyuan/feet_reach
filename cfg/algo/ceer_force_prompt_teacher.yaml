@@ -1,0 +1,10 @@
+# @package algo
+defaults:
+  - root_ppo
+  - _self_
+_target_: active_adaptation.learning.hierarchical.force_prompt_teacher.ForcePromptTeacherPPO
+name: ceer_force_prompt_teacher
+in_keys: [policy, force_gt_]
+critic_in_keys: [policy, priv, joint_target, force_gt_]
+init_noise_scale: 0.3
+lr: 3.0e-5

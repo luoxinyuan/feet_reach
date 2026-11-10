@@ -1,0 +1,8 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_root3_student_no_ee_crouch20_force_history
+  - _self_
+name: G1CEEROnlineEstimatedRoot3StudentNoEECrouch20ForceHistoryTorqueOnlyCompliance
+command:
+  # Ablation: do not fit or constrain the net linear force; retain yaw moment.
+  match_net_force: false

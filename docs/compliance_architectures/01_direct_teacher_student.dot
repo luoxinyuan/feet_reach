@@ -1,0 +1,26 @@
+digraph G {
+graph [rankdir=LR,bgcolor="#ffffff",pad="0.35",nodesep="0.45",ranksep="0.65",fontname="DejaVu Sans",fontsize=20,labelloc=t];
+node [shape=box,style="rounded,filled",fillcolor="#e9f2ff",color="#4977a8",fontname="DejaVu Sans",fontsize=12,margin="0.16,0.12"];
+edge [color="#4d6278",fontname="DejaVu Sans",fontsize=10,arrowsize=0.8];
+label="A | Direct action: privileged teacher -> adaptation -> student";
+state [label="Public state/history + GT force",fillcolor="#e9f2ff"];
+target [label="Training-only privileged state\nand motion joint target",fillcolor="#ede8ff"];
+enc [label="Privileged encoder\n+ optional direct target channel",fillcolor="#fff0d6"];
+teacher [label="Teacher actor\nPPO dense tracking",fillcolor="#fff0d6"];
+adapt [label="Adaptation MLP\npredict privileged latent\n(optional target prediction)",fillcolor="#e9f2ff"];
+student [label="Student actor\nno external joint target",fillcolor="#e9f2ff"];
+robot [label="Joint-position action -> PD -> robot\nNo frozen motion tracker",fillcolor="#dcf5e7"];
+loss [label="Latent / optional direct-target MSE\nthen student PPO fine-tuning",fillcolor="#fff0d6"];
+target -> enc [label="",style=dashed,color="#bd791f",constraint=false];
+enc -> teacher [label="latent / optional direct target",style=dashed,color="#bd791f",constraint=false];
+state -> teacher [label="",style=dashed,color="#bd791f",constraint=false];
+state -> adapt [label=""];
+adapt -> student [label="predicted latent / optional target"];
+state -> student [label=""];
+teacher -> student [label="copy actor weights",style=dashed,color="#bd791f",constraint=false];
+enc -> loss [label="latent supervision",style=dashed,color="#bd791f",constraint=false];
+loss -> adapt [label="train",style=dashed,color="#bd791f",constraint=false];
+loss -> student [label="train",style=dashed,color="#bd791f",constraint=false];
+teacher -> robot [label="phase 1 rollout action",style=dashed,color="#bd791f",constraint=false];
+student -> robot [label="joint actions"];
+}

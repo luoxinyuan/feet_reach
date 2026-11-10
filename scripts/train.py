@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import datetime
+import gc
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -181,6 +182,7 @@ def main(cfg: DictConfig):
 
             data = data_buf.td
 
+        gc.collect()
         rollout_time = time.perf_counter() - start
         training_start = time.perf_counter()
 
@@ -232,9 +234,12 @@ def main(cfg: DictConfig):
     if aa.is_main_process():
         save(policy, "checkpoint_final")
 
-        policy_eval = policy.get_rollout_policy("eval")
-        info, trajs, stats = evaluate(env, policy_eval, render=cfg.eval_render, seed=cfg.seed)
-        run.log(info, step = total_iters)
+        if cfg.get("skip_final_eval", False):
+            logging.info("Skipping final evaluation as requested; checkpoint_final was saved.")
+        else:
+            policy_eval = policy.get_rollout_policy("eval")
+            info, trajs, stats = evaluate(env, policy_eval, render=cfg.eval_render, seed=cfg.seed)
+            run.log(info, step = total_iters)
 
         wandb.finish()
     exit(0)

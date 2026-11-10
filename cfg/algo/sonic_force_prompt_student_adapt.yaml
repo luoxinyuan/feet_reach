@@ -1,0 +1,7 @@
+# @package algo
+defaults:
+  - sonic_force_prompt_student
+  - _self_
+
+name: sonic_force_prompt_student_adapt
+phase: adapt

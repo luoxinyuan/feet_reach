@@ -22,21 +22,25 @@ def limit_force(force, per_point=30., total=60.):
     return force*scale[:,None,None]
 
 
-def consistent_force(force, arms, desired_force, desired_yaw, active):
-    """Project onto non-opposing translation/yaw intent halfspaces.
+def consistent_force(force, arms, desired_force, desired_yaw, active, match_net_force=True):
+    """Project onto selected non-opposing translation/yaw intent halfspaces.
 
     Homogeneous constraints always admit zero. Opposed/infeasible layouts can
-    lose strength rather than inventing an opposing guidance command.
+    lose strength rather than inventing an opposing guidance command. Set
+    ``match_net_force=False`` to keep only the yaw-moment halfspace.
     """
     mask=active[...,None].expand_as(force)
     a=desired_force[:,None,:].expand_as(force)*mask
     b=torch.stack((-arms[...,1],arms[...,0],torch.zeros_like(arms[...,0])),-1)*desired_yaw[:,None,None]*mask
+    directions=(a,b) if match_net_force else (b,)
     for _ in range(8):
-        for direction in (a,b):
+        for direction in directions:
             dot=(force*direction).sum((1,2))
             correction=(-dot).clamp_min(0)/direction.square().sum((1,2)).clamp_min(1e-9)
             force=force+correction[:,None,None]*direction
-    bad=((force*a).sum((1,2)) < -1e-4)|((force*b).sum((1,2)) < -1e-4)
+    bad=(force*b).sum((1,2)) < -1e-4
+    if match_net_force:
+        bad=bad|((force*a).sum((1,2)) < -1e-4)
     return force.masked_fill(bad[:,None,None],0.)
 
 

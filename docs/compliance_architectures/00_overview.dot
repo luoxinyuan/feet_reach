@@ -1,0 +1,24 @@
+digraph G {
+graph [rankdir=TB,bgcolor="#ffffff",pad="0.35",nodesep="0.45",ranksep="0.65",fontname="DejaVu Sans",fontsize=20,labelloc=t];
+node [shape=box,style="rounded,filled",fillcolor="#e9f2ff",color="#4977a8",fontname="DejaVu Sans",fontsize=12,margin="0.16,0.12"];
+edge [color="#4d6278",fontname="DejaVu Sans",fontsize=10,arrowsize=0.8];
+label="Compliance implementations: architecture vs. force generator";
+data [label="Motion dataset\nAMASS / early Crocoddyl",fillcolor="#ede8ff"];
+force [label="Force generator (independent axis)\nTransition / frame spring / online J / offline segmented J",fillcolor="#ede8ff"];
+sim [label="Robot simulator\nactual state + physically applied force",fillcolor="#dcf5e7"];
+direct [label="A/B: Direct action policies\nA: privileged teacher -> adaptation -> student\nB: target-free actor + privileged critic",fillcolor="#e9f2ff"];
+res [label="C: Residual with GT force\nFrozen SONIC or CEER",fillcolor="#e9f2ff"];
+amp [label="D: Residual + AMP\nC plus training-only discriminator",fillcolor="#fff0d6"];
+est [label="E: Residual with estimated force\nGT teacher -> distill -> fine-tune",fillcolor="#e9f2ff"];
+reward [label="Dense tracking reward + critic\nReference motion is training-only",fillcolor="#fff0d6"];
+data -> force [label="reference trajectory"];
+force -> sim [label="physical force"];
+sim -> direct [label="state + GT force"];
+sim -> res [label="state + GT force"];
+res -> amp [label="same deployment structure"];
+sim -> est [label="state/action history; GT supervision",style=dashed,color="#bd791f",constraint=false];
+data -> reward [label="targets",style=dashed,color="#bd791f",constraint=false];
+reward -> direct [label="PPO",style=dashed,color="#bd791f",constraint=false];
+reward -> res [label="PPO",style=dashed,color="#bd791f",constraint=false];
+reward -> est [label="PPO",style=dashed,color="#bd791f",constraint=false];
+}

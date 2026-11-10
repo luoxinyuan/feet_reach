@@ -19,6 +19,7 @@ DEFAULT_BUNDLE = ROOT / 'deploy/mujoco_whole_body/policy'
 DEFAULT_MODEL = ROOT / 'deploy/mujoco_whole_body/g1/g1_29dof_rev_1_0.xml'
 POLICY_BUNDLES = {
     'ceer-online-root3-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261103-ceer-online-root3-crouch20-force-history',
+    'sonic-root3-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261109-sonic-root3-crouch20-force-history',
     'ceer-online-root3-no-ee-teacher': ROOT / 'deploy/mujoco_whole_body/20261102-ceer-online-root3-no-ee-teacher',
     'ceer-online-estimated-9pt': ROOT / 'deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt',
     'ceer-online-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-online-root3',
@@ -341,6 +342,9 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     elif backend == 'ceer-force-history':
         from mujoco_residual import ForceHistorySimulation
         sim = ForceHistorySimulation(bundle, model_path)
+    elif backend == 'sonic-force-history':
+        from mujoco_residual import SonicForceHistorySimulation
+        sim = SonicForceHistorySimulation(bundle, model_path)
     elif backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
         sim = ResidualSimulation(bundle, model_path)
@@ -353,7 +357,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)

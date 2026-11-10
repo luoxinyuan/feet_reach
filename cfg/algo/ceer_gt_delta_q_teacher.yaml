@@ -1,0 +1,10 @@
+# @package algo
+defaults:
+  - root_ppo
+  - _self_
+_target_: active_adaptation.learning.hierarchical.gt_delta_q_teacher.GTDeltaQTeacherPPO
+name: ceer_gt_delta_q_teacher
+in_keys: [policy, delta_q_gt_]
+critic_in_keys: [policy, priv, joint_target, delta_q_gt_]
+init_noise_scale: 0.3
+lr: 3.0e-5

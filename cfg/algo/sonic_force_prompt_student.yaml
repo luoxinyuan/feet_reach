@@ -1,0 +1,14 @@
+# @package algo
+defaults:
+  - root_student_ppo
+  - _self_
+
+name: sonic_force_prompt_student
+phase: train
+in_keys: [policy, force_gt_]
+priv_in_keys: [priv]
+direct_priv_keys: [joint_target]
+critic_in_keys: [policy, force_gt_, priv, joint_target, priv_critic]
+direct_pred_weight: 1.0
+lr: 3.0e-4
+init_noise_scale: 0.3

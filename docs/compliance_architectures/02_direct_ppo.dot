@@ -1,0 +1,20 @@
+digraph G {
+graph [rankdir=LR,bgcolor="#ffffff",pad="0.35",nodesep="0.45",ranksep="0.65",fontname="DejaVu Sans",fontsize=20,labelloc=t];
+node [shape=box,style="rounded,filled",fillcolor="#e9f2ff",color="#4977a8",fontname="DejaVu Sans",fontsize=12,margin="0.16,0.12"];
+edge [color="#4d6278",fontname="DejaVu Sans",fontsize=10,arrowsize=0.8];
+label="B | Direct target-free actor with dense tracking PPO";
+data [label="Motion reference",fillcolor="#ede8ff"];
+gen [label="Guidance generator",fillcolor="#ede8ff"];
+obs [label="Actual state/history + GT force",fillcolor="#e9f2ff"];
+actor [label="Trainable direct-action actor",fillcolor="#e9f2ff"];
+robot [label="Joint-position action -> PD -> robot",fillcolor="#dcf5e7"];
+reward [label="Dense tracking reward\nprivileged critic",fillcolor="#fff0d6"];
+data -> gen [label=""];
+gen -> robot [label="external force"];
+robot -> obs [label="",constraint=false];
+obs -> actor [label="no motion target"];
+actor -> robot [label="actions"];
+data -> reward [label="",style=dashed,color="#bd791f",constraint=false];
+robot -> reward [label="actual motion",style=dashed,color="#bd791f",constraint=false];
+reward -> actor [label="PPO",style=dashed,color="#bd791f",constraint=false];
+}

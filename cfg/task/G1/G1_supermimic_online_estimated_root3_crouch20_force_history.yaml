@@ -1,0 +1,18 @@
+# @package task
+defaults:
+  - /task/G1/G1_sonic_online_estimated_root3_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineEstimatedRoot3Crouch20ForceHistoryCompliance
+
+# Keep the same root + two hand-point online Jacobian command, force history,
+# motion mix, rewards, and high-level PPO interface as the SONIC 3KP run.
+robot:
+  name: g1_supermimic
+
+# PPO still emits a 29-DOF joint-reference residual. The frozen released
+# SuperMimic actor tracks the 10-frame motion goal plus that residual.
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
