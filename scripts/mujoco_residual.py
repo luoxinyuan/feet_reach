@@ -272,7 +272,7 @@ class ForceHistorySimulation(ResidualSimulation):
 
 
 class SonicForceHistorySimulation(ResidualSimulation):
-    """SONIC low-level controller with the trained causal 3-point force prompt."""
+    """SONIC low-level controller with the trained causal force prompt."""
     def __init__(self,bundle,model_path,physics_dt=None):
         meta=json.loads((bundle/'metadata.json').read_text())
         if meta.get('backend')!='sonic-force-history':
@@ -280,7 +280,12 @@ class SonicForceHistorySimulation(ResidualSimulation):
         self.force_history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
         if self.force_history_offsets!=(0,1,2,4,8,16):
             raise ValueError(f'Unexpected force-history offsets: {self.force_history_offsets}')
-        self.force_history=np.zeros((max(self.force_history_offsets)+1,9),dtype=np.float32)
+        force_dim=3*len(meta['force_points'])
+        if force_dim < 3:
+            raise ValueError('SONIC force-history bundle must define at least one 3-D force point.')
+        if meta['obs_dim'] != meta['base_obs_dim'] + len(self.force_history_offsets)*force_dim:
+            raise ValueError('SONIC actor dimension does not match its force-point/history metadata.')
+        self.force_history=np.zeros((max(self.force_history_offsets)+1,force_dim),dtype=np.float32)
         self.force_history_tick=-1
         super().__init__(bundle,model_path,physics_dt)
 
@@ -290,8 +295,8 @@ class SonicForceHistorySimulation(ResidualSimulation):
         self.force_history_tick=-1
 
     def observation(self):
-        # Match the trained task's ordered 354-D observation, then append the
-        # unnormalized 54-D root-local force history used by the teacher actor.
+        # Match the trained task's proprioception, then append the root-local
+        # force history used by the teacher actor.
         rot=self.data.xmat[self.root].reshape(3,3)
         velocity=np.zeros(6)
         mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,
