@@ -1,4 +1,4 @@
-"""Portable causal adapters for frozen SONIC / CEER + learned residual student.
+"""Portable causal adapters for frozen low-level trackers and residual students.
 
 No Isaac, dataset, training module, reference motion, or joint predictor imports.
 """
@@ -311,3 +311,110 @@ class SonicForceHistorySimulation(ResidualSimulation):
         if result.size!=self.meta['obs_dim']:
             raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D actor input, got {result.size}')
         return result
+
+
+class SuperMimicForceHistorySimulation(ResidualSimulation):
+    """SuperMimic low-level tracker with a 3-point force-history residual."""
+    def __init__(self,bundle,model_path,physics_dt=None):
+        meta=json.loads((bundle/'metadata.json').read_text())
+        if meta.get('backend')!='supermimic-force-history':
+            raise ValueError('SuperMimicForceHistorySimulation requires the supermimic-force-history bundle.')
+        self.supermimic_joint_names=list(meta['supermimic_joint_names'])
+        self.force_history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
+        if self.force_history_offsets!=(0,1,2,4,8,16):
+            raise ValueError(f'Unexpected force-history sampling offsets: {self.force_history_offsets}')
+        self.supermimic_to_model=np.array([meta['joint_names'].index(n) for n in self.supermimic_joint_names])
+        if len(self.supermimic_to_model)!=29 or len(set(self.supermimic_to_model.tolist()))!=29:
+            raise ValueError('SuperMimic joint order must map one-to-one onto the 29-DOF MuJoCo model.')
+        self.supermimic_q0=np.asarray(meta['default_pos'],dtype=np.float32)[self.supermimic_to_model]
+        self.supermimic_action_scale=np.asarray(meta['supermimic_action_scale'],dtype=np.float32)
+        if self.supermimic_action_scale.shape!=(29,):
+            raise ValueError('SuperMimic action scale must have 29 entries.')
+        self.force_history=np.zeros((max(self.force_history_offsets)+1,9),dtype=np.float32)
+        self.force_history_tick=-1
+        super().__init__(bundle,model_path,physics_dt)
+
+    def reset(self):
+        super().reset()
+        q=self.data.qpos[self.qadr][self.supermimic_to_model]
+        self.reference=q.copy()
+        self.reference_velocity=np.zeros(29,dtype=np.float32)
+        self.reference_origin=q.copy()
+        self.low_action=np.zeros(29,dtype=np.float32)
+        self.supermimic_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
+        self.supermimic_history_fresh=True
+        self.last_force_observation_error=0.
+        self.force_history[:]=0.
+        self.force_history_tick=-1
+
+    def observation(self):
+        # Match the training order: asset-order q history, then SuperMimic
+        # action-order qd/reference/error/reference-velocity, then force history.
+        public=Simulation.observation(self)
+        q=self.data.qpos[self.qadr]
+        q_policy=q[self.supermimic_to_model]
+        qd_policy=self.data.qvel[self.vadr][self.supermimic_to_model]
+        proprioception=np.r_[public[:238],qd_policy,self.reference,
+                             self.reference-q_policy,self.reference_velocity].astype(np.float32)
+        if proprioception.size!=self.meta['base_obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["base_obs_dim"]}-D proprioception, got {proprioception.size}')
+        if self.force_history_tick!=self.steps:
+            self.force_history[1:]=self.force_history[:-1].copy()
+            rot=self.data.xmat[self.root].reshape(3,3)
+            self.force_history[0]=(self.forces@rot).reshape(-1)/self.meta['force_limit']
+            self.force_history_tick=self.steps
+        result=np.r_[proprioception,self.force_history[list(self.force_history_offsets)].reshape(-1)].astype(np.float32)
+        if result.size!=self.meta['obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D actor input, got {result.size}')
+        return result
+
+    def _update_policy(self):
+        self.last_obs=self.observation()
+        current_force=(self.forces@self.data.xmat[self.root].reshape(3,3)).reshape(-1)/self.meta['force_limit']
+        self.last_force_observation_error=float(np.max(np.abs(self.last_obs[self.meta['base_obs_dim']:self.meta['base_obs_dim']+9]-current_force)))
+        with torch.inference_mode():
+            obs=(torch.from_numpy(self.last_obs)-self.loc)/self.scale
+            raw=self.policy(obs[None])[0].numpy()
+        if not np.isfinite(raw).all():raise RuntimeError('Non-finite residual action')
+        raw=np.clip(raw,-10.,10.)
+        self.last_action=raw.copy()
+        self.actions[1:]=self.actions[:-1].copy();self.actions[0]=raw
+        q=self.data.qpos[self.qadr][self.supermimic_to_model]
+        requested=self.meta['policy_dt']*self.meta['reference_speed']*np.tanh(raw)
+        joint_lower=np.asarray(self.meta['joint_lower'])[self.supermimic_to_model]
+        joint_upper=np.asarray(self.meta['joint_upper'])[self.supermimic_to_model]
+        lower=np.maximum(joint_lower,q-self.meta['max_reference_error'])
+        upper=np.minimum(joint_upper,q+self.meta['max_reference_error'])
+        proposal=np.clip(self.reference+requested,lower,upper)
+        delta=proposal-self.reference
+        delta=np.where(delta*requested>0,np.sign(delta)*np.minimum(np.abs(delta),np.abs(requested)),0.)
+        self.reference+=delta
+        self.reference_velocity=delta/self.meta['policy_dt']
+
+        root_velocity=np.zeros(6)
+        mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,root_velocity,1)
+        rot=self.data.xmat[self.root].reshape(3,3)
+        gravity=rot.T@np.array([0.,0.,-1.])
+        qd=self.data.qvel[self.vadr][self.supermimic_to_model]
+        current_terms=(q-self.supermimic_q0,qd,root_velocity[:3],gravity,self.low_action)
+        for history,current in zip(self.supermimic_history,current_terms):
+            history[:-1]=history[1:].copy()
+            history[-1]=current
+            if self.supermimic_history_fresh:history[:]=current
+        self.supermimic_history_fresh=False
+        low_obs=np.concatenate([x.reshape(-1) for x in self.supermimic_history]).astype(np.float32)[None]
+
+        # The interactive viewer has no motion clip. Use a stationary upright
+        # goal at the nominal pose, with the learned residual reference added.
+        goal_frame=np.r_[self.reference-self.reference_origin,self.reference_velocity,
+                         [0.,0.,-1.],np.zeros(6),self.meta['root_height']].astype(np.float32)
+        goal=np.tile(goal_frame,(1,10)).astype(np.float32)
+        with torch.inference_mode():
+            low=self.low_policy(torch.from_numpy(low_obs),torch.from_numpy(goal))[0].numpy()
+        if not np.isfinite(low).all():raise RuntimeError('Non-finite SuperMimic low-level action')
+        self.low_action=low.astype(np.float32)
+        self.target=self.q0.copy()
+        self.target[self.supermimic_to_model]=(
+            self.supermimic_q0+self.supermimic_action_scale*self.low_action)
+        self.last_low_obs=(low_obs.copy(),goal.copy())
+        self.age+=1

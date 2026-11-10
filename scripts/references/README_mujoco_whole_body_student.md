@@ -158,3 +158,14 @@ python scripts/mujoco_whole_body_web.py --policy ceer-online-estimated-root3 --p
 ```
 
 `ceer-online-estimated-root3` 选择 `deploy/mujoco_whole_body/20261030-ceer-online-estimated-root3/`。修复版的 Isaac Sim / MuJoCo 空载与 10 N 回归结果记录在 `artifacts/20261030-ceer-online-estimated-root3-sim2sim-v2/`。
+
+### SuperMimic root3 force-history（2026-11-10）
+
+SuperMimic 版由训练好的 3KP force-history actor 驱动冻结的 SuperMimic 低层 tracker。MuJoCo 交互环境没有 motion clip，所以低层输入为 10 帧静止站立目标，并叠加 actor 积累的关节参考残差。policy 使用训练时的关节顺序、354 维 proprioception 和 54 维 root-local force history；force-history offsets 为 `[0,1,2,4,8,16]`。拖拽 pelvis 或双手附近时会按最近的 3 个训练施力点派发物理力，单点最大 30 N，总力预算 60 N。
+
+```bash
+python scripts/mujoco_whole_body_web.py --policy supermimic-root3-crouch20-force-history --port 8790
+python scripts/mujoco_whole_body_student.py --policy supermimic-root3-crouch20-force-history
+```
+
+导出目录是 `deploy/mujoco_whole_body/20261110-supermimic-root3-crouch20-force-history/`。部署运行只依赖随包的 TorchScript actor、SuperMimic low-level、归一化和 G1 MuJoCo 模型；不需要 Isaac Lab、训练数据或外部 SuperMimic checkout。空载和 15 N 手部拉力各运行 20 秒都保持有限状态且没有跌倒；这只是 MuJoCo smoke check，完整训练评估见 compliance v1.1 报告。

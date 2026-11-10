@@ -1,0 +1,48 @@
+{
+  "checkpoint": "outputs/20261109-supermimic-root3-crouch20-force-history/174413/train/wandb/run-20261109_174510-x4elg15b/files/checkpoint_final.pt",
+  "checkpoint_sha256": "55cf1d6c2b5d1806fcdcd08471676e142ef3efa2c4ec76fb1f82acef4d92e43c",
+  "actor_export_max_error": 0.0,
+  "supermimic_export_max_error": 0.0,
+  "headless_idle_20s": {
+    "seconds": 20.0,
+    "scripted_force": false,
+    "root_height_min": 0.7565722550402472,
+    "root_height_final": 0.7794892684967313,
+    "first_fall_time": null,
+    "max_force_N": 0.0,
+    "force_observation_max_error": 0.0,
+    "max_abs_action": 2.7342653274536133,
+    "finite": true,
+    "root_final_xyz": [
+      0.05218896557010659,
+      0.01888870723527593,
+      0.7794892684967313
+    ]
+  },
+  "headless_15n_hand_force_20s": {
+    "seconds": 20.0,
+    "scripted_force": true,
+    "root_height_min": 0.7565722550402472,
+    "root_height_final": 0.7788680843777123,
+    "first_fall_time": null,
+    "max_force_N": 15.0,
+    "force_observation_max_error": 1.4851327279075122e-08,
+    "max_abs_action": 3.3293161392211914,
+    "finite": true,
+    "root_final_xyz": [
+      0.7673223247598625,
+      -0.040570433625541094,
+      0.7788680843777123
+    ]
+  },
+  "web_renderer_smoke": {
+    "host": "127.0.0.1",
+    "port": 18790,
+    "egl": true,
+    "root_http_status": 200,
+    "state_http_status": 200,
+    "frame_http_status": 200,
+    "frame_content_type": "image/jpeg",
+    "frame_bytes": 16510
+  }
+}

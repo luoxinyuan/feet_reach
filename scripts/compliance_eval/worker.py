@@ -642,7 +642,15 @@ try:
             if hasattr(manager,'reference'):
                 save('reference_offset_rad',(manager.reference.q-initial_q[:,manager.joint_ids]).abs().mean(-1))
                 save('reference_tracking_gap_rad',(manager.reference.q-q[:,manager.joint_ids]).abs().mean(-1))
-                save('residual_action_norm',manager.applied_action.norm(dim=-1))
+                # CEER and SONIC expose the bounded actor output directly.
+                # SuperMimic keeps the raw residual in action_buf and applies
+                # tanh inside its reference adapter, so audit that equivalent
+                # bounded action when the convenience attribute is absent.
+                applied_action=getattr(manager,'applied_action',None)
+                if applied_action is None and hasattr(manager,'action_buf'):
+                    applied_action=manager.action_buf[:,0].tanh()
+                if applied_action is not None:
+                    save('residual_action_norm',applied_action.norm(dim=-1))
             save('joint_pos',q);save('force_sum_N',forces.norm(dim=-1).sum(-1));save('force_peak_N',forces.norm(dim=-1).amax(-1));save('active_points',(forces.norm(dim=-1)>.05).sum(-1))
             save('force_slew_N_s',(forces-prev_force).norm(dim=-1).amax(-1)/env.step_dt);prev_force.copy_(forces)
             save('pelvis_force_N',forces[:,robot.body_names.index('pelvis')].norm(dim=-1));save('net_force',forces.sum(1));save('net_moment',(torch.cross(cmd.position_apply_buffer-robot.data.root_pos_w[:,None],forces,dim=-1)+cmd.torque_apply_buffer).sum(1))

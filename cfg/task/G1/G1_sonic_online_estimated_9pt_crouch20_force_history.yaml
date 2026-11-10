@@ -1,0 +1,21 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_online_estimated_9pt_no_ee_crouch20_force_history
+  - _self_
+
+name: G1SonicOnlineEstimated9PointNoEECrouch20ForceHistoryCompliance
+
+# Keep the 9-point online-Jacobian command, force-history observations and
+# 80/20 motion/crouch mixture; use the frozen SONIC G1 controller underneath.
+robot:
+  name: g1_sonic
+
+action:
+  _target_: active_adaptation.envs.mdp.sonic_residual.SonicResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+
+observation:
+  policy:
+    sonic_joint_velocity: {}
+    sonic_reference: {}

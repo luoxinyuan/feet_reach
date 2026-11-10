@@ -20,6 +20,7 @@ DEFAULT_MODEL = ROOT / 'deploy/mujoco_whole_body/g1/g1_29dof_rev_1_0.xml'
 POLICY_BUNDLES = {
     'ceer-online-root3-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261103-ceer-online-root3-crouch20-force-history',
     'sonic-root3-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261109-sonic-root3-crouch20-force-history',
+    'supermimic-root3-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261110-supermimic-root3-crouch20-force-history',
     'ceer-online-root3-no-ee-teacher': ROOT / 'deploy/mujoco_whole_body/20261102-ceer-online-root3-no-ee-teacher',
     'ceer-online-estimated-9pt': ROOT / 'deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt',
     'ceer-online-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-online-root3',
@@ -345,6 +346,9 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     elif backend == 'sonic-force-history':
         from mujoco_residual import SonicForceHistorySimulation
         sim = SonicForceHistorySimulation(bundle, model_path)
+    elif backend == 'supermimic-force-history':
+        from mujoco_residual import SuperMimicForceHistorySimulation
+        sim = SuperMimicForceHistorySimulation(bundle, model_path)
     elif backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
         sim = ResidualSimulation(bundle, model_path)
@@ -357,7 +361,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','supermimic-root3-crouch20-force-history','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -383,12 +387,19 @@ def main():
         applied_total.append(float(np.linalg.norm(s.forces,axis=1).sum()))
         if hasattr(s,'estimated_forces'):
             estimated_total.append(float(np.linalg.norm(s.estimated_forces,axis=1).sum()*30.))
-        if s.steps%s.decimation==1:
-            if s.meta.get('backend') != 'dense-estimator':
-                expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
-                # last_obs is before mj_step; verify through observation at the same state instead.
-                force_start=(s.meta['obs_dim']-s.forces.size if s.meta.get('backend')=='ceer' else 238)
-                maxerror=max(maxerror,float(np.max(np.abs(s.observation()[force_start:force_start+s.forces.size]-expected))))
+        if s.meta.get('backend') == 'supermimic-force-history':
+            maxerror=max(maxerror,s.last_force_observation_error)
+        elif s.steps%s.decimation==1 and s.meta.get('backend') != 'dense-estimator':
+            expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
+            backend=s.meta.get('backend')
+            if backend in ('ceer-force-history','sonic-force-history','supermimic-force-history'):
+                expected=expected/s.meta['force_limit']
+                force_start=s.meta['base_obs_dim']
+            else:
+                # The dense-force actor has no physical force token input.
+                force_start=(s.meta['obs_dim']-s.forces.size if backend=='ceer' else 238)
+            # last_obs is before mj_step; verify through observation at the same state instead.
+            maxerror=max(maxerror,float(np.max(np.abs(s.observation()[force_start:force_start+s.forces.size]-expected))))
         actions.append(float(np.max(np.abs(s.last_action))))
     report={'seconds':args.seconds,'scripted_force':args.test_force,'root_height_min':min(heights),
         'root_height_final':heights[-1],'first_fall_time':s.first_fall,'max_force_N':maxforce,
