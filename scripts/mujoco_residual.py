@@ -319,7 +319,7 @@ class SonicForceHistorySimulation(ResidualSimulation):
 
 
 class SuperMimicForceHistorySimulation(ResidualSimulation):
-    """SuperMimic low-level tracker with a 3-point force-history residual."""
+    """SuperMimic low-level tracker with a force-history residual."""
     def __init__(self,bundle,model_path,physics_dt=None):
         meta=json.loads((bundle/'metadata.json').read_text())
         if meta.get('backend')!='supermimic-force-history':
@@ -328,6 +328,11 @@ class SuperMimicForceHistorySimulation(ResidualSimulation):
         self.force_history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
         if self.force_history_offsets!=(0,1,2,4,8,16):
             raise ValueError(f'Unexpected force-history sampling offsets: {self.force_history_offsets}')
+        force_dim=3*len(meta['force_points'])
+        if force_dim < 3:
+            raise ValueError('SuperMimic force-history bundle must define at least one 3-D force point.')
+        if meta['obs_dim'] != meta['base_obs_dim'] + len(self.force_history_offsets)*force_dim:
+            raise ValueError('SuperMimic actor dimension does not match its force-point/history metadata.')
         self.supermimic_to_model=np.array([meta['joint_names'].index(n) for n in self.supermimic_joint_names])
         if len(self.supermimic_to_model)!=29 or len(set(self.supermimic_to_model.tolist()))!=29:
             raise ValueError('SuperMimic joint order must map one-to-one onto the 29-DOF MuJoCo model.')
@@ -335,7 +340,7 @@ class SuperMimicForceHistorySimulation(ResidualSimulation):
         self.supermimic_action_scale=np.asarray(meta['supermimic_action_scale'],dtype=np.float32)
         if self.supermimic_action_scale.shape!=(29,):
             raise ValueError('SuperMimic action scale must have 29 entries.')
-        self.force_history=np.zeros((max(self.force_history_offsets)+1,9),dtype=np.float32)
+        self.force_history=np.zeros((max(self.force_history_offsets)+1,force_dim),dtype=np.float32)
         self.force_history_tick=-1
         super().__init__(bundle,model_path,physics_dt)
 
@@ -376,7 +381,8 @@ class SuperMimicForceHistorySimulation(ResidualSimulation):
     def _update_policy(self):
         self.last_obs=self.observation()
         current_force=(self.forces@self.data.xmat[self.root].reshape(3,3)).reshape(-1)/self.meta['force_limit']
-        self.last_force_observation_error=float(np.max(np.abs(self.last_obs[self.meta['base_obs_dim']:self.meta['base_obs_dim']+9]-current_force)))
+        force_dim=self.forces.size
+        self.last_force_observation_error=float(np.max(np.abs(self.last_obs[self.meta['base_obs_dim']:self.meta['base_obs_dim']+force_dim]-current_force)))
         with torch.inference_mode():
             obs=(torch.from_numpy(self.last_obs)-self.loc)/self.scale
             raw=self.policy(obs[None])[0].numpy()

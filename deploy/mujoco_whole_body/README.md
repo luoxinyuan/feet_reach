@@ -102,6 +102,7 @@ Two additional interactive bundles are available:
 - `20261109-sonic-root3-crouch20-force-history/`: the evaluated SONIC low-level policy with the same 3-point force-history input and 20% crouch training mixture.
 - `20261110-sonic-9pt-crouch20-force-history/`: the evaluated SONIC low-level policy with the 9-point online Jacobian force-history input and 20% crouch training mixture.
 - `20261110-supermimic-root3-crouch20-force-history/`: the evaluated SuperMimic low-level policy with the same 3-point force-history input and 20% crouch training mixture.
+- `20261110-supermimic-9pt-crouch20-force-history/`: the evaluated SuperMimic low-level policy with the 9-point online Jacobian force-history input and 20% crouch training mixture.
 
 Start either browser demo with:
 
@@ -114,6 +115,7 @@ python scripts/mujoco_whole_body_web.py --policy ceer-online-root3-crouch20-forc
 python scripts/mujoco_whole_body_web.py --policy sonic-root3-crouch20-force-history --port 8789
 python scripts/mujoco_whole_body_web.py --policy sonic-9pt-crouch20-force-history --port 8791
 python scripts/mujoco_whole_body_web.py --policy supermimic-root3-crouch20-force-history --port 8790
+python scripts/mujoco_whole_body_web.py --policy supermimic-9pt-crouch20-force-history --port 8792
 ```
 
 The 3-point student receives the three applied forces in the root-local frame.
@@ -141,3 +143,9 @@ stationary upright 10-frame goal and applies the actor's persistent
 joint-reference residual on top. Its bundle README records nominal-stand and
 15 N hand-force headless smoke checks; the full compliance benchmark is in
 `artifacts/compliance_eval/20261110-supermimic-3pt-crouch20-force-history-v1_1/`.
+
+The 9-point SuperMimic bundle uses the same pinned low-level tracker and the
+teacher actor from the full 9KP Jacobian/crouch20 evaluation. The residual input
+contains 354 proprioceptive features and six root-local force samples over the
+nine torso/arm points (offsets `[0,1,2,4,8,16]`). Its headless smoke report and
+the training/evaluation identities are recorded in the bundle metadata.

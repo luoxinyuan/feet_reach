@@ -275,7 +275,7 @@ def main():
     p.add_argument('--host', default='127.0.0.1')
     p.add_argument('--port', type=int, default=8765)
     p.add_argument('--bundle', type=Path, help='Override the selected policy bundle')
-    p.add_argument('--policy', choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'], default='direct')
+    p.add_argument('--policy', choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','supermimic-9pt-crouch20-force-history','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'], default='direct')
     p.add_argument('--model', type=Path, default=DEFAULT_MODEL)
     p.add_argument('--width', type=int, default=960)
     p.add_argument('--height', type=int, default=600)

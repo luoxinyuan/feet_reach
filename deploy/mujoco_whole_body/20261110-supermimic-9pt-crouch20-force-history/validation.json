@@ -1,0 +1,34 @@
+{
+  "headless_idle_12s": {
+    "seconds": 12.0,
+    "scripted_force": false,
+    "root_height_min": 0.755776689314386,
+    "root_height_final": 0.7815869942789195,
+    "first_fall_time": null,
+    "max_force_N": 0.0,
+    "force_observation_max_error": 0.0,
+    "max_abs_action": 3.58940052986145,
+    "finite": true,
+    "root_final_xyz": [
+      0.04059669073470615,
+      -0.030325580389579714,
+      0.7815869942789195
+    ]
+  },
+  "headless_15N_hand_force_12s": {
+    "seconds": 12.0,
+    "scripted_force": true,
+    "root_height_min": 0.755776689314386,
+    "root_height_final": 0.7854237758606583,
+    "first_fall_time": null,
+    "max_force_N": 15.0,
+    "force_observation_max_error": 1.4767354061806515e-08,
+    "max_abs_action": 3.9272749423980713,
+    "finite": true,
+    "root_final_xyz": [
+      0.8652496600450101,
+      0.07367666738483371,
+      0.7854237758606583
+    ]
+  }
+}
