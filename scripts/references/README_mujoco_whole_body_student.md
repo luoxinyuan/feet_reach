@@ -169,3 +169,16 @@ python scripts/mujoco_whole_body_student.py --policy supermimic-root3-crouch20-f
 ```
 
 导出目录是 `deploy/mujoco_whole_body/20261110-supermimic-root3-crouch20-force-history/`。部署运行只依赖随包的 TorchScript actor、SuperMimic low-level、归一化和 G1 MuJoCo 模型；不需要 Isaac Lab、训练数据或外部 SuperMimic checkout。空载和 15 N 手部拉力各运行 20 秒都保持有限状态且没有跌倒；这只是 MuJoCo smoke check，完整训练评估见 compliance v1.1 报告。
+
+### SuperMimic 5-contact observable-surface latent（2026-11-15）
+
+MuJoCo 导出了 `G1SuperMimicSurfaceObservable5` 的最终 teacher checkpoint。桌面交互启动方式：
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy supermimic-surface5-latent
+python scripts/mujoco_whole_body_web.py --policy supermimic-surface5-latent --port 8793
+```
+
+左键拖动上半身表面会在选中的 body-local 接触点施加 80 N/m 弹簧和 4 N·s/m 阻尼。部署 actor 输入包含 5 个接触槽、33 维 body one-hot 与 10 维接触特征，以及 offsets `[0,1,2,4,8,16]` 的六帧历史；每个点上限 30 N、合力幅值总和上限 60 N、slew rate 150 N/s。当前 viewer 一次驱动一个接触点，网络输入布局仍保留训练时最多五点的格式。
+
+高层输出 32 维 latent endpoint，每个 50 Hz 更新向 endpoint 插值十分之一，再由冻结的 SuperMimic encoder/decoder 生成关节目标。交互时不加载 motion clip 或未来关节 GT。导出器和 TorchScript bundle 位于 `scripts/export_supermimic_surface5_mujoco.py` 与 `deploy/mujoco_whole_body/20261115-supermimic-surface5-latent/`。

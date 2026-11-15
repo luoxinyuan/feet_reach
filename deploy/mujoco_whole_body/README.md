@@ -103,6 +103,7 @@ Two additional interactive bundles are available:
 - `20261110-sonic-9pt-crouch20-force-history/`: the evaluated SONIC low-level policy with the 9-point online Jacobian force-history input and 20% crouch training mixture.
 - `20261110-supermimic-root3-crouch20-force-history/`: the evaluated SuperMimic low-level policy with the same 3-point force-history input and 20% crouch training mixture.
 - `20261110-supermimic-9pt-crouch20-force-history/`: the evaluated SuperMimic low-level policy with the 9-point online Jacobian force-history input and 20% crouch training mixture.
+- `20261115-supermimic-surface5-latent/`: the completed 5-contact observable-surface spring policy, with a 32-D latent endpoint residual and frozen SuperMimic low-level decoder.
 
 Start either browser demo with:
 
@@ -116,7 +117,20 @@ python scripts/mujoco_whole_body_web.py --policy sonic-root3-crouch20-force-hist
 python scripts/mujoco_whole_body_web.py --policy sonic-9pt-crouch20-force-history --port 8791
 python scripts/mujoco_whole_body_web.py --policy supermimic-root3-crouch20-force-history --port 8790
 python scripts/mujoco_whole_body_web.py --policy supermimic-9pt-crouch20-force-history --port 8792
+python scripts/mujoco_whole_body_web.py --policy supermimic-surface5-latent --port 8793
 ```
+
+The 5-contact surface policy can also run in the desktop viewer with
+`python scripts/mujoco_whole_body_student.py --policy supermimic-surface5-latent`.
+It receives six histories of canonicalized 5-contact tokens, each containing an
+Isaac body one-hot, local application point, root-relative point, normalized
+root-frame force, and visibility bit. The viewer applies an 80 N/m spring with
+4 N s/m damping to the selected upper-body point; the bundle records the 30 N
+per-point, 60 N total, and 150 N/s slew limits. The actor outputs a 32-D latent
+endpoint, interpolated over ten 50 Hz updates before decoding one latent into
+the SuperMimic joint target. The viewer drives one selected contact at a time;
+the actor input retains the trained capacity for up to five simultaneous
+contacts. See the bundle README for details.
 
 The 3-point student receives the three applied forces in the root-local frame.
 The 23-point student does not receive MuJoCo force ground truth: its bundled

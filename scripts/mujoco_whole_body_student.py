@@ -23,6 +23,7 @@ POLICY_BUNDLES = {
     'sonic-9pt-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261110-sonic-9pt-crouch20-force-history',
     'supermimic-root3-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261110-supermimic-root3-crouch20-force-history',
     'supermimic-9pt-crouch20-force-history': ROOT / 'deploy/mujoco_whole_body/20261110-supermimic-9pt-crouch20-force-history',
+    'supermimic-surface5-latent': ROOT / 'deploy/mujoco_whole_body/20261115-supermimic-surface5-latent',
     'ceer-online-root3-no-ee-teacher': ROOT / 'deploy/mujoco_whole_body/20261102-ceer-online-root3-no-ee-teacher',
     'ceer-online-estimated-9pt': ROOT / 'deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt',
     'ceer-online-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-online-root3',
@@ -112,6 +113,7 @@ class Simulation:
         for i in range(len(self.points)):
             goal = capped(desired[i],self.meta['force_limit'])
             self.forces[i] += capped(goal-self.forces[i],self.meta['force_slew']*self.model.opt.timestep)
+        self._after_force_slew()
         self.data.xfrc_applied[:] = 0.
         for bid, point, force in zip(self.points,self.point_positions(),self.forces):
             # xfrc_applied acts at COM; shift each point load and sum shared-body wrenches.
@@ -147,6 +149,9 @@ class Simulation:
         self.target = self.q0 + self.meta['action_scale']*action
 
     def _before_torque(self):
+        pass
+
+    def _after_force_slew(self):
         pass
 
     def point_positions(self):
@@ -351,6 +356,9 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     elif backend == 'supermimic-force-history':
         from mujoco_residual import SuperMimicForceHistorySimulation
         sim = SuperMimicForceHistorySimulation(bundle, model_path)
+    elif backend == 'supermimic-surface-latent':
+        from mujoco_residual import SuperMimicSurfaceLatentSimulation
+        sim = SuperMimicSurfaceLatentSimulation(bundle, model_path)
     elif backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
         sim = ResidualSimulation(bundle, model_path)
@@ -363,7 +371,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','supermimic-9pt-crouch20-force-history','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','supermimic-9pt-crouch20-force-history','supermimic-surface5-latent','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -389,7 +397,10 @@ def main():
         applied_total.append(float(np.linalg.norm(s.forces,axis=1).sum()))
         if hasattr(s,'estimated_forces'):
             estimated_total.append(float(np.linalg.norm(s.estimated_forces,axis=1).sum()*30.))
-        if s.meta.get('backend') == 'supermimic-force-history':
+        if s.meta.get('backend') == 'supermimic-surface-latent':
+            start=s.meta['base_obs_dim'];width=s.meta['max_contacts']*(len(s.meta['asset_body_names'])+10)
+            maxerror=max(maxerror,float(np.max(np.abs(s.last_obs[start:start+width]-s.contact_history[0]))))
+        elif s.meta.get('backend') == 'supermimic-force-history':
             maxerror=max(maxerror,s.last_force_observation_error)
         elif s.steps%s.decimation==1 and s.meta.get('backend') != 'dense-estimator':
             expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()

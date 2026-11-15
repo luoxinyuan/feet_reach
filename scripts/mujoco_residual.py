@@ -429,3 +429,225 @@ class SuperMimicForceHistorySimulation(ResidualSimulation):
             self.supermimic_q0+self.supermimic_action_scale*self.low_action)
         self.last_low_obs=(low_obs.copy(),goal.copy())
         self.age+=1
+
+
+class SuperMimicSurfaceLatentSimulation(ResidualSimulation):
+    """Observable-surface force actor with a frozen SuperMimic latent decoder."""
+    def __init__(self,bundle,model_path,physics_dt=None):
+        meta=json.loads((bundle/'metadata.json').read_text())
+        if meta.get('backend')!='supermimic-surface-latent':
+            raise ValueError('Expected a supermimic-surface-latent bundle.')
+        self.body_names=list(meta['asset_body_names'])
+        self.history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
+        self.num_contacts=int(meta['max_contacts'])
+        self.token_dim=len(self.body_names)+10
+        if (self.num_contacts,self.token_dim,self.history_offsets)!=(5,43,(0,1,2,4,8,16)):
+            raise ValueError('Unexpected observable-surface token/history layout.')
+        if meta['obs_dim']!=372+len(self.history_offsets)*self.num_contacts*self.token_dim:
+            raise ValueError('Actor observation dimensions do not match the 5-contact policy.')
+        self.body_name_to_isaac={name:i for i,name in enumerate(self.body_names)}
+        self.contact_history=np.zeros((max(self.history_offsets)+1,
+            self.num_contacts*self.token_dim),dtype=np.float32)
+        self.contact_history_tick=-1
+        self.selected_body_id=None
+        self.selected_point_local=np.zeros(3,dtype=np.float64)
+        self.actor_joint_history=np.zeros((5,29),dtype=np.float32)
+        self.root_ang_history=np.zeros((1,3),dtype=np.float32)
+        self.gravity_history=np.zeros((1,3),dtype=np.float32)
+        self.policy_history_fresh=True
+        self.action_history=np.zeros((3,32),dtype=np.float32)
+        self.latent_residual=np.zeros(32,dtype=np.float32)
+        self.latent_endpoint=np.zeros(32,dtype=np.float32)
+        self.last_latent=np.zeros(32,dtype=np.float32)
+        self.supermimic_joint_names=list(meta['supermimic_joint_names'])
+        self.supermimic_to_model=np.asarray([meta['joint_names'].index(n) for n in self.supermimic_joint_names])
+        self.supermimic_q0=np.asarray(meta['supermimic_default_pos'],dtype=np.float32)
+        self.supermimic_action_scale=np.asarray(meta['supermimic_action_scale'],dtype=np.float32)
+        self.latent_scale=float(meta['latent_scale'])
+        self.interpolation_frames=int(meta['interpolation_frames'])
+        self.supermimic_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
+        self.supermimic_history_fresh=True
+        super().__init__(bundle,model_path,physics_dt)
+        if len(self.supermimic_to_model)!=29 or len(set(self.supermimic_to_model.tolist()))!=29:
+            raise ValueError('SuperMimic joint names must map one-to-one to the MuJoCo model.')
+        self._upper_body_ids={self.model.body(n).id for n in self.body_names
+            if not any(part in n for part in ('hip','knee','ankle'))}
+        self.meta['force_budget']=60.
+
+    def reset(self):
+        super().reset()
+        specs=self.meta['force_points']
+        self.point_names=[p['name'] for p in specs]
+        self.points=np.asarray([self.model.body(p['body']).id for p in specs],dtype=np.int32)
+        self.point_offsets=np.asarray([p['offset'] for p in specs],dtype=np.float64)
+        q=self.data.qpos[self.qadr][self.supermimic_to_model].astype(np.float32)
+        self.reference=q.copy()
+        self.reference_origin=q.copy()
+        self.reference_velocity=np.zeros(29,dtype=np.float32)
+        self.low_action=np.zeros(29,dtype=np.float32)
+        self.contact_history.fill(0);self.contact_history_tick=-1
+        self.actor_joint_history[:]=q[self._asset_joint_to_model()]-self.q0[self._asset_joint_to_model()]
+        self.root_ang_history[:]=self._root_ang_vel_body()
+        self.gravity_history[:]=self._projected_gravity()
+        self.policy_history_fresh=True
+        self.action_history.fill(0);self.latent_residual.fill(0)
+        self.latent_endpoint.fill(0);self.last_latent.fill(0)
+        self.actions=np.zeros((3,32),dtype=np.float32)
+        self.last_action=np.zeros(32,dtype=np.float32)
+        self.selected_body_id=None
+        self.selected_point_local=np.zeros(3,dtype=np.float64)
+        self.forces.fill(0)
+        self.supermimic_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
+        self.supermimic_history_fresh=True
+
+    def _asset_joint_to_model(self):
+        return np.asarray([self.meta['joint_names'].index(n) for n in self.meta['asset_joint_names']])
+
+    def _root_ang_vel_body(self):
+        v=np.zeros(6)
+        mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,v,1)
+        return v[:3].astype(np.float32)
+
+    def _root_ang_vel_world(self):
+        v=np.zeros(6)
+        mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,v,0)
+        return v[:3].astype(np.float32)
+
+    def _projected_gravity(self):
+        rot=self.data.xmat[self.root].reshape(3,3)
+        return (rot.T@np.array([0.,0.,-1.])).astype(np.float32)
+
+    def _after_force_slew(self):
+        total=float(np.linalg.norm(self.forces,axis=1).sum())
+        budget=float(self.meta['force_budget'])
+        if total>budget:self.forces*=budget/total
+
+    def nearest_point(self,body,hit):
+        if body not in self._upper_body_ids:return None
+        self.selected_body_id=int(body)
+        rot=self.data.xmat[body].reshape(3,3)
+        self.selected_point_local=rot.T@(np.asarray(hit)-self.data.xpos[body])
+        self.points[:]=self.model.body('pelvis').id
+        self.point_offsets[:]=0.
+        self.points[0]=body
+        self.point_offsets[0]=self.selected_point_local
+        name=self.model.body(body).name
+        self.point_names[0]='surface:'+name
+        return 0
+
+    def _contact_frame(self):
+        frame=np.zeros((self.num_contacts,self.token_dim),dtype=np.float32)
+        rot=self.data.xmat[self.root].reshape(3,3)
+        for slot,(body,force,local) in enumerate(zip(self.points,self.forces,self.point_offsets)):
+            if np.linalg.norm(force)<=1e-5:continue
+            name=self.model.body(int(body)).name
+            if name not in self.body_name_to_isaac:continue
+            idx=self.body_name_to_isaac[name]
+            point=self.data.xpos[body]+self.data.xmat[body].reshape(3,3)@local
+            token=frame[slot]
+            token[idx]=1.
+            token[len(self.body_names):len(self.body_names)+3]=local
+            token[len(self.body_names)+3:len(self.body_names)+6]=rot.T@(point-self.data.xpos[self.root])
+            token[len(self.body_names)+6:len(self.body_names)+9]=rot.T@force/30.
+            token[-1]=1.
+        # Training sorts all contacts canonically; inactive slots sort first.
+        def sort_key(token):
+            visible=token[-1]>0.5
+            if not visible:return (0.,0.,0.,0.,0.,0.,0.)
+            body=int(np.argmax(token[:len(self.body_names)]))
+            return (1.,float(body),*map(float,token[len(self.body_names):len(self.body_names)+6]),
+                    *map(float,token[len(self.body_names)+6:len(self.body_names)+9]))
+        frame=frame[np.asarray(sorted(range(self.num_contacts),key=lambda i:sort_key(frame[i])))]
+        return frame.reshape(-1)
+
+    def _surface_history(self):
+        if self.contact_history_tick!=self.steps:
+            self.contact_history[1:]=self.contact_history[:-1].copy()
+            self.contact_history[0]=self._contact_frame()
+            if self.policy_history_fresh:
+                self.contact_history[1:]=0.
+            self.contact_history_tick=self.steps
+        return self.contact_history[np.asarray(self.history_offsets)].reshape(-1)
+
+    def observation(self):
+        q=self.data.qpos[self.qadr]
+        q_asset=q[self._asset_joint_to_model()]
+        q0_asset=self.q0[self._asset_joint_to_model()]
+        qd=self.data.qvel[self.vadr][self._asset_joint_to_model()]
+        joint_now=(q_asset-q0_asset).astype(np.float32)
+        root_ang=self._root_ang_vel_body()
+        gravity=self._projected_gravity()
+        if self.policy_history_fresh:
+            self.actor_joint_history[:]=joint_now
+            self.root_ang_history[:]=root_ang
+            self.gravity_history[:]=gravity
+        else:
+            self.actor_joint_history[1:]=self.actor_joint_history[:-1].copy()
+            self.actor_joint_history[0]=joint_now
+            self.root_ang_history[0]=root_ang
+            self.gravity_history[0]=gravity
+        policy=np.concatenate((self.root_ang_history.reshape(-1),self.gravity_history.reshape(-1),
+            self.actor_joint_history.reshape(-1),self.action_history.reshape(-1),qd.astype(np.float32),
+            self.latent_residual,self.latent_endpoint,self.last_latent)).astype(np.float32)
+        force_hist=self._surface_history()
+        self.policy_history_fresh=False
+        result=np.r_[policy,force_hist].astype(np.float32)
+        if result.size!=self.meta['obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D actor input; got {result.size}')
+        return result
+
+    def _reference_goal(self):
+        root_v=np.zeros(6)
+        mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,root_v,0)
+        # MuJoCo root body yaw is obtained from its world rotation matrix.
+        rot=self.data.xmat[self.root].reshape(3,3)
+        heading=np.arctan2(rot[1,0],rot[0,0])
+        c,s=np.cos(heading),np.sin(heading)
+        world_to_heading=np.array([[c,s,0.],[-s,c,0.],[0.,0.,1.]])
+        linear=world_to_heading@root_v[3:]
+        frame=np.r_[self.reference-self.supermimic_q0,self.reference_velocity,
+            [0.,0.,-1.],self._root_ang_vel_world(),linear,self.data.qpos[2]].astype(np.float32)
+        return np.tile(frame,(10,1)).reshape(1,-1)
+
+    def _low_observation(self):
+        q=self.data.qpos[self.qadr][self.supermimic_to_model].astype(np.float32)
+        qd=self.data.qvel[self.vadr][self.supermimic_to_model].astype(np.float32)
+        terms=(q-self.supermimic_q0,qd,self._root_ang_vel_body(),self._projected_gravity(),self.low_action)
+        if self.supermimic_history_fresh:
+            histories=[]
+            for value in terms:histories.append(np.tile(value,(10,1)))
+            self.supermimic_history=histories
+            self.supermimic_history_fresh=False
+        else:
+            for history,current in zip(self.supermimic_history,terms):
+                history[:-1]=history[1:].copy();history[-1]=current
+        return np.concatenate([x.reshape(-1) for x in self.supermimic_history]).astype(np.float32)[None]
+
+    def _update_policy(self):
+        self.last_obs=self.observation()
+        with torch.inference_mode():
+            actor_obs=(torch.from_numpy(self.last_obs)-self.loc)/self.scale
+            raw=self.policy(actor_obs[None])[0].numpy().clip(-10.,10.)
+        if not np.isfinite(raw).all():raise RuntimeError('Non-finite surface-latent actor output.')
+        self.action_history[1:]=self.action_history[:-1].copy();self.action_history[0]=raw
+        self.actions[1:]=self.actions[:-1].copy();self.actions[0]=raw
+        self.last_action=raw.copy()
+        self.latent_endpoint=self.latent_scale*np.tanh(raw)
+        self.latent_residual+=(self.latent_endpoint-self.latent_residual)/self.interpolation_frames
+        obs=torch.from_numpy(self._low_observation())
+        goal=torch.from_numpy(self._reference_goal())
+        residual=torch.from_numpy(self.latent_residual[None])
+        with torch.inference_mode():
+            low=self.low_policy(obs,goal,residual)[0].numpy()
+        if not np.isfinite(low).all():raise RuntimeError('Non-finite SuperMimic low-level output.')
+        self.low_action=low.astype(np.float32)
+        self.last_latent=np.clip(self.low_policy_base_latent(goal.numpy())+self.latent_residual,-1.,1.).astype(np.float32)
+        target=self.q0.copy()
+        target[self.supermimic_to_model]=self.supermimic_q0+self.supermimic_action_scale*self.low_action
+        self.target=target
+        self.last_low_obs=(obs.numpy().copy(),goal.numpy().copy())
+
+    def low_policy_base_latent(self,goal):
+        # The exported wrapper exposes the same encoder; the policy input term
+        # needs the current decoded latent for the next actor observation.
+        return self.low_policy.base_latent(torch.from_numpy(goal)).numpy()[0]
