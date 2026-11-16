@@ -304,7 +304,7 @@
     "surface_contacts"
   ],
   "native_student_max_error": 2.384185791015625e-06,
-  "self_collisions": true,
+  "self_collisions": false,
   "sonic_manifest": {
     "source_commit": "45c03facbf848e0c743091b7d9c17952096ff908",
     "hf_revision": "bfd764a",
@@ -547,6 +547,7 @@
   "spring_damping": 4.0,
   "latent_scale": 2.0,
   "interpolation_frames": 10,
+  "zero_force_residual_gate": true,
   "force_input": "5 contact tokens x (33 body one-hot + local point xyz + root-relative point xyz + root-frame force xyz / 30 N + active bit); six newest-first frames at offsets 0,1,2,4,8,16",
   "contact_interface": "Mouse drag selects one upper-body surface point and pulls its body-attached point with an 80 N/m spring and 4 N s/m damping. Training actor accepts up to five simultaneous contacts; interactive viewer currently drives one selected contact at a time.",
   "force_cap": "30 N per point, 60 N sum of point-force magnitudes, 150 N/s slew per point",

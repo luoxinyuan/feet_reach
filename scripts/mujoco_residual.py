@@ -573,7 +573,11 @@ class SuperMimicSurfaceLatentSimulation(ResidualSimulation):
         q=self.data.qpos[self.qadr]
         q_asset=q[self._asset_joint_to_model()]
         q0_asset=self.q0[self._asset_joint_to_model()]
-        qd=self.data.qvel[self.vadr][self._asset_joint_to_model()]
+        # `sonic_joint_velocity` in the trained actor is ordered by the
+        # SuperMimic action manager's policy joints, while joint_pos_history
+        # above intentionally follows the Isaac asset order.  Keep these two
+        # observation terms in their distinct training-time joint orders.
+        qd=self.data.qvel[self.vadr][self.supermimic_to_model]
         joint_now=(q_asset-q0_asset).astype(np.float32)
         root_ang=self._root_ang_vel_body()
         gravity=self._projected_gravity()
@@ -596,7 +600,7 @@ class SuperMimicSurfaceLatentSimulation(ResidualSimulation):
             raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D actor input; got {result.size}')
         return result
 
-    def _reference_goal(self):
+    def _reference_goal(self, stationary=False):
         root_v=np.zeros(6)
         mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,root_v,0)
         # MuJoCo root body yaw is obtained from its world rotation matrix.
@@ -604,9 +608,15 @@ class SuperMimicSurfaceLatentSimulation(ResidualSimulation):
         heading=np.arctan2(rot[1,0],rot[0,0])
         c,s=np.cos(heading),np.sin(heading)
         world_to_heading=np.array([[c,s,0.],[-s,c,0.],[0.,0.,1.]])
-        linear=world_to_heading@root_v[3:]
+        linear=np.zeros(3) if stationary else world_to_heading@root_v[3:]
+        # The reference-free Isaac goal intentionally exposes only world yaw
+        # rate; roll/pitch rates are zeroed.  Feeding all three measured rates
+        # here changes the encoded base latent as soon as the body starts to
+        # move, creating an unintended feedback path in MuJoCo.
+        yaw_rate=0. if stationary else self._root_ang_vel_world()[2]
+        angular=np.array([0.,0.,yaw_rate],dtype=np.float32)
         frame=np.r_[self.reference-self.supermimic_q0,self.reference_velocity,
-            [0.,0.,-1.],self._root_ang_vel_world(),linear,self.data.qpos[2]].astype(np.float32)
+            [0.,0.,-1.],angular,linear,self.data.qpos[2]].astype(np.float32)
         return np.tile(frame,(10,1)).reshape(1,-1)
 
     def _low_observation(self):
@@ -629,13 +639,23 @@ class SuperMimicSurfaceLatentSimulation(ResidualSimulation):
             actor_obs=(torch.from_numpy(self.last_obs)-self.loc)/self.scale
             raw=self.policy(actor_obs[None])[0].numpy().clip(-10.,10.)
         if not np.isfinite(raw).all():raise RuntimeError('Non-finite surface-latent actor output.')
+        # This checkpoint's Isaac teacher has appreciable nonzero residuals
+        # on an all-zero force prompt (that state is rare during training).
+        # The MuJoCo viewer is an interactive compliance tool, so make its
+        # intended no-load hold explicit and fade the residual through the
+        # existing latent interpolation instead of letting an OOD no-force
+        # action make the standing robot twitch.
+        force_active=np.linalg.norm(self.forces,axis=-1).max()>1e-5
+        stationary=bool(self.meta.get('zero_force_residual_gate',False) and not force_active)
+        if stationary:
+            raw.fill(0.)
         self.action_history[1:]=self.action_history[:-1].copy();self.action_history[0]=raw
         self.actions[1:]=self.actions[:-1].copy();self.actions[0]=raw
         self.last_action=raw.copy()
         self.latent_endpoint=self.latent_scale*np.tanh(raw)
         self.latent_residual+=(self.latent_endpoint-self.latent_residual)/self.interpolation_frames
         obs=torch.from_numpy(self._low_observation())
-        goal=torch.from_numpy(self._reference_goal())
+        goal=torch.from_numpy(self._reference_goal(stationary=stationary))
         residual=torch.from_numpy(self.latent_residual[None])
         with torch.inference_mode():
             low=self.low_policy(obs,goal,residual)[0].numpy()

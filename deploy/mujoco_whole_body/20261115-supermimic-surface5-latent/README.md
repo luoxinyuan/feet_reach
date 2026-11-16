@@ -12,8 +12,10 @@ python scripts/mujoco_whole_body_student.py --policy supermimic-surface5-latent
 
 Left-drag an upper-body surface to apply a point spring (80 N/m, 4 N s/m damping). The selected point moves with its body. Force is capped at 30 N per point and 60 N total, with a 150 N/s slew rate. The viewer currently drives one selected contact at a time; the policy input preserves the trained five-contact token layout and can represent up to five active contacts.
 
+When no external force is applied, the MuJoCo adapter sets the latent residual endpoint to zero, uses the existing 10-step interpolation to return to its base latent, and gives the low-level tracker a zero root-velocity goal. This avoids the teacher's nonzero out-of-distribution response to an all-zero force prompt and holds the standing robot in place. During an applied force, the learned actor controls the residual normally. This idle behavior is a MuJoCo deployment rule; the Isaac checkpoint itself is not stationary under zero force.
+
 ## Input alignment
 
 The high-level actor receives 372 proprioception/latent values and six histories of five 43-value tokens (1662 total). Each contact token is Isaac asset body one-hot, body-local application point, root-relative point, root-frame applied force divided by 30 N, and a visibility bit. Inactive slots are zero and contacts are canonically sorted, matching training.
 
-The frozen SuperMimic release is `e11c_0220000`. The low-level goal is generated from the reset reference and current root state; it is not a prerecorded future trajectory.
+The frozen SuperMimic release is `e11c_0220000`. The low-level goal is generated from the reset reference and current root state; it is not a prerecorded future trajectory. MuJoCo robot self-collisions are disabled to match the Isaac `G1_SUPERMIMIC` asset.
