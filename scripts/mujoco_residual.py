@@ -888,3 +888,113 @@ class SuperMimicOriginalSimulation(ResidualSimulation):
 
     def _projected_gravity(self):
         return (self.data.xmat[self.root].reshape(3,3).T@np.array([0.,0.,-1.])).astype(np.float32)
+
+
+class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
+    """3KP force-history actor with a SuperMimic encoded motion-goal latent."""
+    def __init__(self,bundle,model_path,physics_dt=None):
+        meta=json.loads((bundle/'metadata.json').read_text())
+        if meta.get('backend')!='supermimic-latent-force-history':
+            raise ValueError('Expected a SuperMimic latent-residual force-history bundle.')
+        self.supermimic_joint_names=list(meta['supermimic_joint_names'])
+        self.supermimic_to_model=np.asarray([meta['joint_names'].index(n) for n in self.supermimic_joint_names])
+        self.supermimic_q0=np.asarray(meta['supermimic_default_pos'],dtype=np.float32)
+        self.supermimic_action_scale=np.asarray(meta['supermimic_action_scale'],dtype=np.float32)
+        self.force_history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
+        if self.force_history_offsets!=(0,1,2,4,8,16):raise ValueError('Unexpected force-history offsets.')
+        self.force_history=np.zeros((17,9),dtype=np.float32);self.force_history_tick=-1
+        self.root_ang_history=np.zeros((1,3),dtype=np.float32)
+        self.gravity_history=np.zeros((1,3),dtype=np.float32)
+        self.actor_joint_history=np.zeros((5,29),dtype=np.float32)
+        self.low_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
+        self.history_fresh=True;self.low_history_fresh=True
+        self.latent_residual_scale=float(meta['latent_residual_scale'])
+        super().__init__(bundle,model_path,physics_dt)
+        if (meta['base_obs_dim'],meta['obs_dim'],meta['latent_residual_scale'])!=(363,417,0.1):
+            raise ValueError('Unexpected 3KP latent actor input or residual scale.')
+
+    def reset(self):
+        super().reset()
+        self.reference=np.asarray(self.data.qpos[self.qadr][self.supermimic_to_model],dtype=np.float32).copy()
+        self.reference_velocity=np.zeros(29,dtype=np.float32)
+        self.actions=np.zeros((3,32),dtype=np.float32);self.last_action=np.zeros(32,dtype=np.float32)
+        self.force_history.fill(0.);self.force_history_tick=-1
+        self.root_ang_history[:]=self._root_ang_vel_body();self.gravity_history[:]=self._projected_gravity()
+        q_asset=self.data.qpos[self.qadr]
+        # The trained ActionManager uses a zero offset, so joint_pos_history
+        # contains absolute joint positions (not positions relative to q0).
+        self.actor_joint_history[:]=q_asset
+        self.history_fresh=True;self.low_history_fresh=True
+        self.low_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
+        self.low_action=np.zeros(29,dtype=np.float32);self.last_force_observation_error=0.
+        self.low_target_root_height=float(self.meta['root_height'])
+
+    def _root_ang_vel_body(self):
+        v=np.zeros(6);mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,v,1)
+        return v[:3].astype(np.float32)
+
+    def _projected_gravity(self):
+        return (self.data.xmat[self.root].reshape(3,3).T@np.array([0.,0.,-1.])).astype(np.float32)
+
+    def observation(self):
+        q=self.data.qpos[self.qadr][self.supermimic_to_model]
+        qd=self.data.qvel[self.vadr][self.supermimic_to_model]
+        root_ang=self._root_ang_vel_body();gravity=self._projected_gravity()
+        if self.history_fresh:
+            self.root_ang_history[:]=root_ang;self.gravity_history[:]=gravity
+            self.actor_joint_history[:]=self.data.qpos[self.qadr]
+        else:
+            self.actor_joint_history[1:]=self.actor_joint_history[:-1].copy()
+            self.actor_joint_history[0]=self.data.qpos[self.qadr]
+            self.root_ang_history[0]=root_ang;self.gravity_history[0]=gravity
+        # Training order: angular velocity, gravity, five q frames, three
+        # previous 32-D actions, joint velocity and fixed reset reference.
+        base=np.r_[self.root_ang_history.reshape(-1),self.gravity_history.reshape(-1),
+            self.actor_joint_history.reshape(-1),self.actions.reshape(-1),qd,
+            self.reference,self.reference-q,self.reference_velocity].astype(np.float32)
+        if self.force_history_tick!=self.steps:
+            self.force_history[1:]=self.force_history[:-1].copy()
+            rot=self.data.xmat[self.root].reshape(3,3)
+            self.force_history[0]=(self.forces@rot).reshape(-1)/float(self.meta['force_limit'])
+        self.force_history_tick=self.steps
+        self.history_fresh=False
+        sampled=self.force_history[list(self.force_history_offsets)].reshape(-1)
+        result=np.r_[base,sampled].astype(np.float32)
+        if result.size!=self.meta['obs_dim']:
+            raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D actor input, got {result.size}.')
+        return result
+
+    def _low_observation(self):
+        q=self.data.qpos[self.qadr][self.supermimic_to_model].astype(np.float32)
+        qd=self.data.qvel[self.vadr][self.supermimic_to_model].astype(np.float32)
+        current=(q-self.supermimic_q0,qd,self._root_ang_vel_body(),self._projected_gravity(),self.low_action)
+        if self.low_history_fresh:
+            self.low_history=[np.tile(x,(10,1)) for x in current]
+            self.low_history_fresh=False
+        else:
+            for hist,value in zip(self.low_history,current):hist[:-1]=hist[1:].copy();hist[-1]=value
+        return np.concatenate([x.reshape(-1) for x in self.low_history]).astype(np.float32)[None]
+
+    def _stationary_goal(self):
+        frame=np.r_[self.reference-self.supermimic_q0,np.zeros(29),[0.,0.,-1.],
+            np.zeros(6),self.low_target_root_height].astype(np.float32)
+        return np.tile(frame,(1,10)).astype(np.float32)
+
+    def _update_policy(self):
+        self.last_obs=self.observation()
+        force_dim=self.forces.size
+        current=(self.forces@self.data.xmat[self.root].reshape(3,3)).reshape(-1)/float(self.meta['force_limit'])
+        self.last_force_observation_error=float(np.max(np.abs(self.last_obs[self.meta['base_obs_dim']:self.meta['base_obs_dim']+force_dim]-current)))
+        with torch.inference_mode():
+            norm=(torch.from_numpy(self.last_obs)-self.loc)/self.scale
+            raw=self.policy(norm[None])[0].numpy()
+        if not np.isfinite(raw).all():raise RuntimeError('Non-finite SuperMimic latent-residual action.')
+        raw=np.clip(raw,-10.,10.);self.last_action=raw.copy()
+        self.actions[1:]=self.actions[:-1].copy();self.actions[0]=raw
+        residual=self.latent_residual_scale*np.tanh(raw)
+        obs=torch.from_numpy(self._low_observation());goal=torch.from_numpy(self._stationary_goal())
+        with torch.inference_mode():low=self.low_policy(obs,goal,torch.from_numpy(residual[None]))[0].numpy()
+        if not np.isfinite(low).all():raise RuntimeError('Non-finite SuperMimic latent decoder output.')
+        self.low_action=low.astype(np.float32)
+        target=self.q0.copy();target[self.supermimic_to_model]=self.supermimic_q0+self.supermimic_action_scale*self.low_action
+        self.target=target

@@ -106,6 +106,7 @@ Two additional interactive bundles are available:
 - `20261115-supermimic-surface5-latent/`: the completed 5-contact observable-surface spring policy, with a 32-D latent endpoint residual and frozen SuperMimic low-level decoder.
 - `20261118-supermimic-surface3-direct-latent/`: the full-body 3-contact direct-latent ComplianceMix policy, with arbitrary represented surface points and the trained six-frame force-token history.
 - `20261118-supermimic-original-arbitrary-contact/`: the frozen original SuperMimic encoder/decoder with arbitrary physical point interaction and no compliance actor or force prompt.
+- `20261118-supermimic-3kp-jacobian-gtbase-latent/`: the 3KP online-Jacobian force-history actor whose 32-D output is added to the frozen encoder's 10-frame GT-motion base latent.
 
 Start either browser demo with:
 
@@ -122,6 +123,7 @@ python scripts/mujoco_whole_body_web.py --policy supermimic-9pt-crouch20-force-h
 python scripts/mujoco_whole_body_web.py --policy supermimic-surface5-latent --port 8793
 python scripts/mujoco_whole_body_web.py --policy supermimic-surface3-direct-latent --port 8794
 python scripts/mujoco_whole_body_web.py --policy supermimic-original-arbitrary-contact --port 8795
+python scripts/mujoco_whole_body_web.py --policy supermimic-3kp-jacobian-gtbase-latent --port 8796
 ```
 
 For a desktop viewer, replace `mujoco_whole_body_web.py` with
@@ -178,3 +180,15 @@ teacher actor from the full 9KP Jacobian/crouch20 evaluation. The residual input
 contains 354 proprioceptive features and six root-local force samples over the
 nine torso/arm points (offsets `[0,1,2,4,8,16]`). Its headless smoke report and
 the training/evaluation identities are recorded in the bundle metadata.
+
+The `supermimic-3kp-jacobian-gtbase-latent` bundle uses the 3KP Jacobian actor
+and the same frozen SuperMimic encoder/decoder. The actor outputs a 32-D
+residual scaled by `0.1 * tanh(action)`, which is added to the latent encoded
+from ten future motion frames. The original Isaac benchmark supplied those
+future frames from the ground-truth motion dataset. Since the interactive
+MuJoCo viewer has no motion clip, its adapter supplies ten repeated nominal
+standing-pose frames as the base goal. This preserves the actor, force-history,
+and latent-residual interfaces, but does not reproduce the benchmark's
+reference-conditioned tracking setup or its reported MAE. Bundle provenance,
+checkpoint hashes, input order, and stationary-goal behavior are recorded in
+the dated bundle README and metadata.

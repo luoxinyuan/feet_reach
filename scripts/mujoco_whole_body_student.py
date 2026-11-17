@@ -26,6 +26,7 @@ POLICY_BUNDLES = {
     'supermimic-surface5-latent': ROOT / 'deploy/mujoco_whole_body/20261115-supermimic-surface5-latent',
     'supermimic-surface3-direct-latent': ROOT / 'deploy/mujoco_whole_body/20261118-supermimic-surface3-direct-latent',
     'supermimic-original-arbitrary-contact': ROOT / 'deploy/mujoco_whole_body/20261118-supermimic-original-arbitrary-contact',
+    'supermimic-3kp-jacobian-gtbase-latent': ROOT / 'deploy/mujoco_whole_body/20261118-supermimic-3kp-jacobian-gtbase-latent',
     'ceer-online-root3-no-ee-teacher': ROOT / 'deploy/mujoco_whole_body/20261102-ceer-online-root3-no-ee-teacher',
     'ceer-online-estimated-9pt': ROOT / 'deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt',
     'ceer-online-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-online-root3',
@@ -374,6 +375,9 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     elif backend == 'supermimic-original':
         from mujoco_residual import SuperMimicOriginalSimulation
         sim = SuperMimicOriginalSimulation(bundle, model_path)
+    elif backend == 'supermimic-latent-force-history':
+        from mujoco_residual import SuperMimicLatentForceHistorySimulation
+        sim = SuperMimicLatentForceHistorySimulation(bundle, model_path)
     elif backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
         sim = ResidualSimulation(bundle, model_path)
@@ -386,7 +390,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','supermimic-9pt-crouch20-force-history','supermimic-surface5-latent','supermimic-surface3-direct-latent','supermimic-original-arbitrary-contact','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','supermimic-9pt-crouch20-force-history','supermimic-surface5-latent','supermimic-surface3-direct-latent','supermimic-original-arbitrary-contact','supermimic-3kp-jacobian-gtbase-latent','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -418,7 +422,7 @@ def main():
         elif s.meta.get('backend') == 'supermimic-surface-direct-latent':
             start=s.meta['base_obs_dim'];width=s.meta['max_contacts']*(len(s.meta['asset_body_names'])+10)
             maxerror=max(maxerror,float(np.max(np.abs(s.last_obs[start:start+width]-s.contact_history[0]))))
-        elif s.meta.get('backend') == 'supermimic-force-history':
+        elif s.meta.get('backend') in ('supermimic-force-history','supermimic-latent-force-history'):
             maxerror=max(maxerror,s.last_force_observation_error)
         elif s.steps%s.decimation==1 and s.meta.get('backend') != 'dense-estimator':
             expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
