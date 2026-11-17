@@ -104,6 +104,8 @@ Two additional interactive bundles are available:
 - `20261110-supermimic-root3-crouch20-force-history/`: the evaluated SuperMimic low-level policy with the same 3-point force-history input and 20% crouch training mixture.
 - `20261110-supermimic-9pt-crouch20-force-history/`: the evaluated SuperMimic low-level policy with the 9-point online Jacobian force-history input and 20% crouch training mixture.
 - `20261115-supermimic-surface5-latent/`: the completed 5-contact observable-surface spring policy, with a 32-D latent endpoint residual and frozen SuperMimic low-level decoder.
+- `20261118-supermimic-surface3-direct-latent/`: the full-body 3-contact direct-latent ComplianceMix policy, with arbitrary represented surface points and the trained six-frame force-token history.
+- `20261118-supermimic-original-arbitrary-contact/`: the frozen original SuperMimic encoder/decoder with arbitrary physical point interaction and no compliance actor or force prompt.
 
 Start either browser demo with:
 
@@ -118,7 +120,20 @@ python scripts/mujoco_whole_body_web.py --policy sonic-9pt-crouch20-force-histor
 python scripts/mujoco_whole_body_web.py --policy supermimic-root3-crouch20-force-history --port 8790
 python scripts/mujoco_whole_body_web.py --policy supermimic-9pt-crouch20-force-history --port 8792
 python scripts/mujoco_whole_body_web.py --policy supermimic-surface5-latent --port 8793
+python scripts/mujoco_whole_body_web.py --policy supermimic-surface3-direct-latent --port 8794
+python scripts/mujoco_whole_body_web.py --policy supermimic-original-arbitrary-contact --port 8795
 ```
+
+For a desktop viewer, replace `mujoco_whole_body_web.py` with
+`mujoco_whole_body_student.py` and omit `--port`.
+
+The 3-contact direct-latent bundle sends `tanh(actor_output)` straight into
+the released SuperMimic decoder; it does not use an encoded motion-reference
+latent or action interpolation. Its mouse interface accepts any represented
+G1 surface point. The original SuperMimic baseline uses the same physical
+point-spring interaction but receives no force tokens, so force affects only
+MuJoCo physics. See each dated bundle's README for its checkpoint, limits, and
+input details.
 
 The 5-contact surface policy can also run in the desktop viewer with
 `python scripts/mujoco_whole_body_student.py --policy supermimic-surface5-latent`.
