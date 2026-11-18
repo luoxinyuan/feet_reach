@@ -894,8 +894,9 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
     """3KP force-history actor with a SuperMimic encoded motion-goal latent."""
     def __init__(self,bundle,model_path,physics_dt=None):
         meta=json.loads((bundle/'metadata.json').read_text())
-        if meta.get('backend')!='supermimic-latent-force-history':
-            raise ValueError('Expected a SuperMimic latent-residual force-history bundle.')
+        self.curriculum_backend=meta.get('backend')=='supermimic-latent-increment-curriculum'
+        if meta.get('backend') not in ('supermimic-latent-force-history','supermimic-latent-increment-curriculum'):
+            raise ValueError('Expected a SuperMimic latent force-history bundle.')
         self.supermimic_joint_names=list(meta['supermimic_joint_names'])
         self.supermimic_to_model=np.asarray([meta['joint_names'].index(n) for n in self.supermimic_joint_names])
         self.supermimic_q0=np.asarray(meta['supermimic_default_pos'],dtype=np.float32)
@@ -908,10 +909,18 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
         self.actor_joint_history=np.zeros((5,29),dtype=np.float32)
         self.low_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
         self.history_fresh=True;self.low_history_fresh=True
-        self.latent_residual_scale=float(meta['latent_residual_scale'])
+        self.latent_residual_scale=float(meta.get('latent_increment_scale' if self.curriculum_backend else 'latent_residual_scale'))
+        self.latent_offset=np.zeros(32,dtype=np.float32)
+        self.seed_latent=np.zeros(32,dtype=np.float32)
+        self.current_latent=np.zeros(32,dtype=np.float32)
         super().__init__(bundle,model_path,physics_dt)
-        if (meta['base_obs_dim'],meta['obs_dim'],meta['latent_residual_scale'])!=(363,417,0.1):
-            raise ValueError('Unexpected 3KP latent actor input or residual scale.')
+        expected=(395,449,.025) if self.curriculum_backend else (363,417,.1)
+        scale_key='latent_increment_scale' if self.curriculum_backend else 'latent_residual_scale'
+        if (meta['base_obs_dim'],meta['obs_dim'],float(meta[scale_key]))!=expected:
+            raise ValueError('Unexpected 3KP latent actor input dimensions or latent scale.')
+        # Simulation.__init__ resets before the frozen decoder is loaded. Reset
+        # again now so the seed latent can be encoded from the initial pose.
+        if self.curriculum_backend:self.reset()
 
     def reset(self):
         super().reset()
@@ -928,6 +937,12 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
         self.low_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
         self.low_action=np.zeros(29,dtype=np.float32);self.last_force_observation_error=0.
         self.low_target_root_height=float(self.meta['root_height'])
+        self.latent_offset.fill(0.);self.current_latent.fill(0.);self.seed_latent.fill(0.)
+        if self.curriculum_backend and hasattr(self,'low_policy'):
+            goal=torch.from_numpy(self._stationary_goal())
+            with torch.inference_mode():seed=self.low_policy.encode_goal(goal)[0].numpy()
+            self.seed_latent=seed.astype(np.float32).copy()
+            self.current_latent=self.seed_latent.copy()
 
     def _root_ang_vel_body(self):
         v=np.zeros(6);mujoco.mj_objectVelocity(self.model,self.data,mujoco.mjtObj.mjOBJ_BODY,self.root,v,1)
@@ -960,6 +975,11 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
         self.history_fresh=False
         sampled=self.force_history[list(self.force_history_offsets)].reshape(-1)
         result=np.r_[base,sampled].astype(np.float32)
+        if self.curriculum_backend:
+            # PPO consumes ordered TensorDict keys [policy, force_input_].
+            # The 395-D policy term (363 proprioception + 32 latent state)
+            # is concatenated before the 54-D force-history term.
+            result=np.r_[base,self.current_latent,sampled].astype(np.float32)
         if result.size!=self.meta['obs_dim']:
             raise RuntimeError(f'Expected {self.meta["obs_dim"]}-D actor input, got {result.size}.')
         return result
@@ -991,9 +1011,14 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
         if not np.isfinite(raw).all():raise RuntimeError('Non-finite SuperMimic latent-residual action.')
         raw=np.clip(raw,-10.,10.);self.last_action=raw.copy()
         self.actions[1:]=self.actions[:-1].copy();self.actions[0]=raw
-        residual=self.latent_residual_scale*np.tanh(raw)
         obs=torch.from_numpy(self._low_observation());goal=torch.from_numpy(self._stationary_goal())
-        with torch.inference_mode():low=self.low_policy(obs,goal,torch.from_numpy(residual[None]))[0].numpy()
+        if self.curriculum_backend:
+            self.latent_offset+=self.latent_residual_scale*np.tanh(raw)
+            self.current_latent=np.clip(self.seed_latent+self.latent_offset,-1.,1.).astype(np.float32)
+            with torch.inference_mode():low=self.low_policy.decode_latent(obs,torch.from_numpy(self.current_latent[None]))[0].numpy()
+        else:
+            residual=self.latent_residual_scale*np.tanh(raw)
+            with torch.inference_mode():low=self.low_policy(obs,goal,torch.from_numpy(residual[None]))[0].numpy()
         if not np.isfinite(low).all():raise RuntimeError('Non-finite SuperMimic latent decoder output.')
         self.low_action=low.astype(np.float32)
         target=self.q0.copy();target[self.supermimic_to_model]=self.supermimic_q0+self.supermimic_action_scale*self.low_action
