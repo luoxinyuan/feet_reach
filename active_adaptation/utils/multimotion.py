@@ -24,7 +24,8 @@ class ProgressiveMultiMotionDataset:
                  clamp_joint_targets: bool = True,
                  buffer_float_dtype: str = "float16",
                  resample_on_reset: bool = False,
-                 motion_allowlists: List[str | None] | None = None):
+                 motion_allowlists: List[str | None] | None = None,
+                 track_source_indices: bool = False):
         self.device = device
         self.ds_device = ds_device
         self.env_size = env_size
@@ -102,11 +103,13 @@ class ProgressiveMultiMotionDataset:
         self._buf_A = self._allocate_empty_buffer()
         self._len_A = torch.zeros(env_size, dtype=torch.int32, device=device)
         self._info_A = self._allocate_info_buffer()
+        self.source_indices = self._allocate_source_indices() if track_source_indices else None
 
         if not sample_once:
             self._buf_B = self._allocate_empty_buffer()
             self._len_B = torch.zeros(env_size, dtype=torch.int32, device=device)
             self._info_B = self._allocate_info_buffer()
+            self._source_indices_B = self._allocate_source_indices() if track_source_indices else None
 
         self._reset_counters = 0
         self._refreshing = False
@@ -138,6 +141,9 @@ class ProgressiveMultiMotionDataset:
                     idx=torch.minimum(idx,(ds.ends[mids]-1)[:,None])
                     self._buf_A[selected]=self._to_float(ds.data[idx].to(self.device),dtype=self.buffer_float_dtype)
                     self._len_A[selected]=ds.lengths[mids].clamp_max(self.max_step_size).to(self.device)
+                    if self.source_indices is not None:
+                        self.source_indices[selected, 0] = pi
+                        self.source_indices[selected, 1] = mids.to(self.device)
                     for k in self.dataset_extra_keys:
                         self._info_A[k['name']][selected]=ds.info[k['name']][mids].to(self.device)
 
@@ -220,6 +226,9 @@ class ProgressiveMultiMotionDataset:
             ret[k['name']] = torch.zeros((self.env_size, k['shape']), dtype=k['dtype'], device=self.device)
         return ret
 
+    def _allocate_source_indices(self):
+        return torch.empty((self.env_size, 2), dtype=torch.long, device=self.device)
+
     def _begin_refresh(self):
         self._populate_buffer_full(target="B")
         self._refreshing = True
@@ -228,6 +237,8 @@ class ProgressiveMultiMotionDataset:
     def _copy_B_to_A(self, env_ids: torch.Tensor):
         self._buf_A[env_ids] = self._buf_B[env_ids]
         self._len_A[env_ids] = self._len_B[env_ids]
+        if self.source_indices is not None:
+            self.source_indices[env_ids] = self._source_indices_B[env_ids]
         for k in self.dataset_extra_keys:
             self._info_A[k['name']][env_ids] = self._info_B[k['name']][env_ids]
 
@@ -241,8 +252,10 @@ class ProgressiveMultiMotionDataset:
         assert target in {"A", "B"}
         if target == "A":
             buf, len_buf, info_buf = self._buf_A, self._len_A, self._info_A
+            source = self.source_indices
         else:
             buf, len_buf, info_buf = self._buf_B, self._len_B, self._info_B
+            source = self._source_indices_B
 
         path_samples = torch.multinomial(self.probs, self.env_size, replacement=True).to(torch.int32)
 
@@ -271,6 +284,9 @@ class ProgressiveMultiMotionDataset:
 
             buf[mask, :self.max_step_size] = self._to_float(ds.data[local_idx].to(self.device), dtype=self.buffer_float_dtype)
             len_buf[mask] = ds.lengths[mids_long].clamp_max(self.max_step_size).to(self.device)
+            if source is not None:
+                source[mask, 0] = pi
+                source[mask, 1] = mids_long.to(self.device)
 
             for k in self.dataset_extra_keys:
                 name = k['name']

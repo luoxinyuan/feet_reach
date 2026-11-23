@@ -1,0 +1,8 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_aligned8_direct_latent_curriculum
+  - _self_
+
+name: G1SuperMimicAligned8ForceLatentCurriculum
+command:
+  force_encoder_path: ???

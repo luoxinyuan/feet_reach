@@ -1,0 +1,30 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_compliance
+  - _self_
+name: G1SuperMimicAligned8DirectLatentCurriculum
+robot:
+  name: g1_supermimic
+command:
+  _target_: active_adaptation.envs.mdp.commands.aligned_force_curriculum.AlignedForceCurriculumCommand
+  force_cache: artifacts/surface_contact_study/coverage000_boundary_fixed_20261122/aligned_training_cache_legacy
+  latent_curriculum_start: 0.15
+  latent_curriculum_end: 0.80
+  history_offsets: [0, 1, 2, 4, 8, 16]
+  dataset:
+    mem_paths: [passive_whole_body_full/train, crouch_lowlevel/train]
+    path_weights: [0.8, 0.2]
+    track_source_indices: true
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicDirectLatentCurriculumAction
+  minimum_policy_weight: 0.2
+observation:
+  policy:
+    upper_body_forces_b: {enabled: false}
+    sonic_reference: {enabled: false}
+    latent_reference: {}
+  force_gt_:
+    aligned_force_history: {}
+reward:
+  tracking:
+    ee_tracking: {weight: 0.0, enabled: false}

@@ -1,0 +1,66 @@
+[
+  {
+    "body": "pelvis",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "body": "left_hand_mimic",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "body": "right_hand_mimic",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "body": "torso_link",
+    "offset": [
+      -0.06564924865961075,
+      -0.007600182201713324,
+      0.18157804012298584
+    ]
+  },
+  {
+    "body": "left_shoulder_roll_link",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "body": "right_shoulder_roll_link",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "body": "left_elbow_link",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "body": "right_elbow_link",
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  }
+]

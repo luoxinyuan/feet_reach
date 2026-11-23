@@ -92,3 +92,78 @@ class SuperMimicResidualAction(ActionManager):
 
         self.asset.set_joint_position_target(self.target)
         self.asset.write_data_to_sim()
+
+
+class SuperMimicDirectLatentAction(SuperMimicResidualAction):
+    """Let PPO output the SuperMimic latent sent directly to its decoder.
+
+    Unlike :class:`SuperMimicLatentResidualAction`, this action never builds
+    or encodes a dataset motion goal.  The bounded 32-D PPO action is the
+    complete latent input to the frozen decoder at every control step.
+    """
+
+    def __init__(self, env, **kwargs):
+        super().__init__(env, **kwargs)
+        self.action_dim = 32
+        self.action_buf = torch.zeros(self.num_envs, 3, 32, device=self.device)
+        self.last_latent = torch.zeros(self.num_envs, 32, device=self.device)
+
+    @torch.no_grad()
+    def reset(self, env_ids):
+        super().reset(env_ids)
+        self.last_latent[env_ids] = 0.0
+
+    def _decoder_latent(self, action):
+        return action.tanh()
+
+    @torch.no_grad()
+    def __call__(self, tensordict, substep):
+        if substep == 0:
+            action = tensordict["action"]
+            if action.shape[-1] != 32:
+                raise ValueError(f"Expected 32-D direct latent, got {action.shape[-1]}")
+            self.action_buf = self.action_buf.roll(1, dims=1)
+            self.action_buf[:, 0] = action
+            self.last_latent.copy_(self._decoder_latent(action))
+
+            obs = current_supermimic_observation(
+                self.asset, self.joint_ids, self.q0, self.previous_action, self.history)
+            self.low_action.copy_(self.low_policy.decode(obs, self.last_latent))
+            self.previous_action.copy_(self.low_action)
+            self.target[:, self.joint_ids] = self.q0 + self.action_scaling * self.low_action
+
+        self.asset.set_joint_position_target(self.target)
+        self.asset.write_data_to_sim()
+
+
+class SuperMimicDirectLatentCurriculumAction(SuperMimicDirectLatentAction):
+    """Fade reference assistance out of a directly predicted decoder latent."""
+
+    def __init__(self, env, minimum_policy_weight=0.2, **kwargs):
+        super().__init__(env, **kwargs)
+        self.minimum_policy_weight = float(minimum_policy_weight)
+        if not 0.0 < self.minimum_policy_weight < 1.0:
+            raise ValueError("minimum_policy_weight must be between zero and one")
+        self.current_latent = torch.zeros_like(self.last_latent)
+
+    @torch.no_grad()
+    def reset(self, env_ids):
+        super().reset(env_ids)
+        self.current_latent[env_ids] = 0.0
+
+    def _decoder_latent(self, action):
+        proposal = super()._decoder_latent(action)
+        # Actor feedback contains its own previous proposal throughout training.
+        self.current_latent.copy_(proposal)
+        command = self.env.command_manager
+        progress_weight = command.latent_curriculum_alpha
+        if progress_weight >= 1.0:
+            return proposal
+
+        starts = torch.minimum(command.t + 1, (command.lengths - 10).clamp_min(0))
+        reference = command.dataset.get_slice(None, starts, steps=self._goal_steps)
+        goal = make_supermimic_goal(
+            reference, self.env, self.asset, self.q0, self.dataset_joint_ids)
+        reference_latent = self.low_policy.encode(goal)
+        policy_weight = self.minimum_policy_weight + (1.0 - self.minimum_policy_weight) * progress_weight
+        return torch.lerp(reference_latent, proposal, policy_weight)

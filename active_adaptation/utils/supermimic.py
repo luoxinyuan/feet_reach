@@ -1,12 +1,15 @@
 """Released SuperMimic actor and its feet_reach observation mapping."""
 from pathlib import Path
+import os
 import sys
 
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-SUPER_MIMIC_ROOT = Path("/home/xl521/supermimic_force_transition")
+SUPER_MIMIC_ROOT = Path(os.environ.get(
+    "SUPER_MIMIC_ROOT", "/home/xl521/supermimic_force_transition"
+)).expanduser().resolve()
 SUPER_MIMIC_CODE = SUPER_MIMIC_ROOT / "code"
 SUPER_MIMIC_CHECKPOINT = SUPER_MIMIC_ROOT / "pretrained/e11c_0220000/ckpt_e11c_0220000.pt"
 SUPER_MIMIC_DEPLOY_CONFIG = SUPER_MIMIC_ROOT / "pretrained/e11c_0220000/deploy_config.json"
@@ -70,23 +73,39 @@ class ReleasedSuperMimic(nn.Module):
     def train(self, mode=True):
         return super().train(False)
 
-    def forward(self, obs, goal):
+    def encode(self, goal):
         x = goal * self.goal_scale
         for layer in self.encoder[:-1]:
             x = F.silu(layer(x))
-        z = torch.tanh(self.encoder[-1](x))
+        return torch.tanh(self.encoder[-1](x))
+
+    def forward(self, obs, goal):
+        return self.decode(obs, self.encode(goal))
+
+    def decode(self, obs, z):
+        if z.shape[-1] != 32:
+            raise ValueError("SuperMimic latent must be 32-dimensional")
         x = torch.cat((z, obs * self.obs_scale), dim=-1)
         for layer in self.decoder[:-1]:
             x = F.silu(layer(x))
         return self.decoder[-1](x)
 
 
-def make_supermimic_goal(ref, env, robot, q0, qids, residual_q=None, residual_qd=None):
+def make_supermimic_goal(ref, env, robot, q0, qids, residual_q=None, residual_qd=None,
+                         env_ids=None):
     """Create the release's 10-frame, 68-value-per-frame goal token."""
     rot = quat_to_mat(ref.root_quat_w)
-    root_pos_w = ref.root_pos_w + env.scene.env_origins[:, None, :]
-    state_rot = quat_to_mat(robot.data.root_quat_w)
-    dp = mtv(state_rot[:, None], root_pos_w - robot.data.root_pos_w[:, None])
+    if env_ids is None:
+        env_origins = env.scene.env_origins
+        state_root_quat_w = robot.data.root_quat_w
+        state_root_pos_w = robot.data.root_pos_w
+    else:
+        env_origins = env.scene.env_origins[env_ids]
+        state_root_quat_w = robot.data.root_quat_w[env_ids]
+        state_root_pos_w = robot.data.root_pos_w[env_ids]
+    root_pos_w = ref.root_pos_w + env_origins[:, None, :]
+    state_rot = quat_to_mat(state_root_quat_w)
+    dp = mtv(state_rot[:, None], root_pos_w - state_root_pos_w[:, None])
     # Keep the transform calculation explicit as a frame-alignment assertion;
     # the released goal token uses root height and heading velocity, not XY.
     if not torch.isfinite(dp).all():
