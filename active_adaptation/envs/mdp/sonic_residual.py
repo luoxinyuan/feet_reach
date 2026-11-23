@@ -27,13 +27,14 @@ class SonicResidualAction(ActionManager):
         self.reference = ResidualReference(self.num_envs, limits[..., 0], limits[..., 1],
                                            env.step_dt, reference_speed, max_reference_error)
         self.history = ProprioceptionHistory(self.num_envs, self.device)
+        self.joint_symmetry_transform = joint_space_symmetry(self.asset, self.joint_names)
         self.action_buf = torch.zeros(self.num_envs, 3, 29, device=self.device)
         self.applied_action = torch.zeros(self.num_envs, 29, device=self.device)
         self.low_action = torch.zeros_like(self.applied_action)
         self.target = self.default_joint_pos.clone()
 
     def symmetry_transforms(self):
-        return joint_space_symmetry(self.asset, self.joint_names)
+        return self.joint_symmetry_transform
 
     @torch.no_grad()
     def reset(self, env_ids):
@@ -68,3 +69,59 @@ class SonicResidualAction(ActionManager):
             self.target[:, self.joint_ids] = self.nominal + self.action_scaling * self.low_action
         self.asset.set_joint_position_target(self.target)
         self.asset.write_data_to_sim()
+
+
+class SonicLatentResidualAction(SonicResidualAction):
+    """Inject a bounded 64-D residual after SONIC's FSQ tokenizer."""
+
+    def __init__(self, env, latent_residual_scale=0.1, **kwargs):
+        super().__init__(env, **kwargs)
+        self.latent_residual_dim = int(self.sonic.model.token_total_dim)
+        if self.latent_residual_dim != 64:
+            raise ValueError(
+                f"Expected SONIC's 2 x 32 latent tokens (64 dims), got {self.latent_residual_dim}."
+            )
+        self.action_dim = self.latent_residual_dim
+        self.latent_residual_scale = float(latent_residual_scale)
+        if self.latent_residual_scale <= 0.0:
+            raise ValueError("latent_residual_scale must be positive.")
+        self.action_buf = torch.zeros(self.num_envs, 3, self.action_dim, device=self.device)
+        self.applied_action = torch.zeros(self.num_envs, self.action_dim, device=self.device)
+
+    def symmetry_transforms(self):
+        # No exact left/right transform is defined for SONIC's learned tokens.
+        # The paired task disables symmetry augmentation; identity keeps the
+        # action and prev_actions observation specs dimensionally valid.
+        return _identity_transform(self.action_dim)
+
+    @torch.no_grad()
+    def reset(self, env_ids):
+        super().reset(env_ids)
+        self.action_buf[env_ids] = 0.0
+        self.applied_action[env_ids] = 0.0
+
+    @torch.no_grad()
+    def __call__(self, tensordict, substep):
+        if substep == 0:
+            raw = tensordict['action']
+            self.action_buf = self.action_buf.roll(1, dims=1)
+            self.action_buf[:, 0] = raw
+            self.applied_action.copy_(raw.tanh())
+            data = self.asset.data
+            q = data.joint_pos[:, self.joint_ids]
+            obs = self.history.push(data.root_ang_vel_b, q - self.nominal,
+                                    data.joint_vel[:, self.joint_ids], self.low_action,
+                                    data.projected_gravity_b)
+            latent_residual = self.latent_residual_scale * raw.tanh()
+            self.low_action.copy_(self.sonic(
+                self.reference.q, self.orientation(), obs,
+                latent_residual=latent_residual,
+            ))
+            self.target[:, self.joint_ids] = self.nominal + self.action_scaling * self.low_action
+        self.asset.set_joint_position_target(self.target)
+        self.asset.write_data_to_sim()
+
+
+def _identity_transform(dim):
+    from active_adaptation.utils.symmetry import SymmetryTransform
+    return SymmetryTransform(torch.arange(dim), torch.ones(dim))

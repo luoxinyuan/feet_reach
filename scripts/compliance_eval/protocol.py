@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 import numpy as np
 
-VERSION = 'compliance-v1.1'
+VERSION = 'compliance-v1.5'
 SEEDS = [20261104, 20261105, 20261106]
 DT = .02
+MAGNITUDES_BY_GROUP = {'ee':[5.,10.,20.], 'locomotion':[5.,10.,20.], 'crouch':[10.,20.,30.], 'yaw':[5.,10.,20.], 'bend':[5.,10.,20.]}
 
 def digest(path):
     h = hashlib.sha256()
@@ -26,9 +27,9 @@ def cases():
         out.append(dict(name=f'root_{name}',group='locomotion',direction=v,loads=[['pelvis',v]]))
     out.append(dict(name='crouch',group='crouch',direction=[0,0,-1],loads=[['pelvis',[0,0,-1]]]))
     for name, sign in [('left',1),('right',-1)]:
-        out.append(dict(name=f'yaw_{name}',group='yaw',sign=sign,loads=[['left_shoulder_roll_link',[-sign,0,0]],['right_shoulder_roll_link',[sign,0,0]]]))
+        out.append(dict(name=f'yaw_{name}',group='yaw',sign=sign,force_frame='torso_local',loads=[['left_shoulder_roll_link',[-sign,0,0]],['right_shoulder_roll_link',[sign,0,0]]]))
     for name,v,axis,sign in [('forward',[1,0,0],1,1),('backward',[-1,0,0],1,-1),('left',[0,1,0],0,-1),('right',[0,-1,0],0,1)]:
-        out.append(dict(name=f'bend_{name}',group='bend',axis=axis,sign=sign,offsets={'torso_link':[0.,0.,.25]},loads=[['torso_link',v],['pelvis',[-x for x in v]]]))
+        out.append(dict(name=f'bend_{name}',group='bend',axis=axis,sign=sign,force_frame='torso_local',offsets={'torso_link':[0.,0.,.25]},loads=[['torso_link',v],['pelvis',[-x for x in v]]]))
     assert len(out)==23
     return out
 
@@ -38,8 +39,10 @@ def envelope(t):
     if t>7: return .5-.5*np.cos(np.pi*(8-t))
     return 1.
 
-def behavior_rows():
-    return [dict(c,force_N=f,repeat=r) for c in cases() for f in [5.,10.,20.] for r in range(5)]
+def behavior_rows(case_rows=None, magnitudes_by_group=None):
+    case_rows=cases() if case_rows is None else case_rows
+    magnitudes_by_group={'ee':[5.,10.,20.], 'locomotion':[5.,10.,20.], 'crouch':[5.,10.,20.], 'yaw':[5.,10.,20.], 'bend':[5.,10.,20.]} if magnitudes_by_group is None else magnitudes_by_group
+    return [dict(c,force_N=f,repeat=r) for c in case_rows for f in magnitudes_by_group.get(c['group'],[5.,10.,20.]) for r in range(5)]
 
 def load_arrays(path):
     path=Path(path); meta=json.loads((path/'meta_motion.json').read_text())
@@ -97,8 +100,8 @@ def prepare(root, output):
         chosen+=selected
     result=dict(version=VERSION,dt=DT,seeds=SEEDS,clips=chosen,source_meta_sha256=source_hashes,available_categories=coverage,
                 provenance='validation is a dataset split, not proof of source-recording disjointness; AMASS original recording IDs unavailable',
-                behavior=dict(cases=cases(),magnitudes_N=[5,10,20],repeats=5,seconds=12,ramp=[2,3,7,8],
-                              coordinate_frame='initial heading, held fixed in world; loads at moving link origins',
+                behavior=dict(cases=cases(),magnitudes_by_group=MAGNITUDES_BY_GROUP,repeats=5,seconds=12,ramp=[2,3,7,8],
+                              coordinate_frame='hand and pelvis translation loads are fixed in world relative to initial heading; shoulder yaw couples and torso/pelvis bending couples use transverse torso-local axes transformed by the current full torso orientation at every physics substep; loads follow their body points',
                               initial_joint_noise_rad=.003,fall_root_height_m=.30,fall_tilt_deg=75),
                 video=dict(width=960,height=540,fps=25,crf=28,maxrate='1200k',bufsize='2400k'))
     output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(result,indent=2))

@@ -1,0 +1,15 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_spring3_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineSpring3Crouch20ForceHistoryLatentResidualCompliance
+
+# Preserve the direct 3KP next-frame spring-force command and all parent task
+# settings. Replace only the 29-D joint-reference residual with a 32-D latent
+# residual added to the frozen SuperMimic encoding of the same 10-frame GT goal.
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicLatentResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+  latent_residual_scale: 0.1

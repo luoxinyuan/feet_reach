@@ -9,7 +9,7 @@ class SonicComplianceCommand(PassiveWholeBodyCommand):
         allowed = {'root_ang_vel_history', 'projected_gravity_history',
                    'joint_pos_history', 'prev_actions', 'upper_body_forces_b',
                    'sonic_reference', 'sonic_joint_velocity',
-                   'boot_indicator_state', 'command', 'root_and_wrist_6d'}
+                   'boot_indicator_state', 'command', 'root_and_wrist_6d', 'latent_reference'}
         enabled = {key for key, value in env.cfg.observation.policy.items()
                    if not key.startswith('_') and (value is None or value.get('enabled', True))}
         if enabled - allowed:
@@ -32,4 +32,4 @@ class SonicComplianceCommand(PassiveWholeBodyCommand):
         return self.asset.data.joint_vel[:, self.env.action_manager.joint_ids]
 
     def sonic_joint_velocity_sym(self):
-        return self.env.action_manager.symmetry_transforms()
+        return self.env.action_manager.joint_symmetry_transform

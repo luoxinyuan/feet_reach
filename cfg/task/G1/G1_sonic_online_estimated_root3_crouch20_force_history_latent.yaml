@@ -1,0 +1,14 @@
+# @package task
+defaults:
+  - /task/G1/G1_sonic_online_estimated_root3_crouch20_force_history
+  - _self_
+
+name: G1SonicOnlineEstimatedRoot3Crouch20ForceHistoryLatentResidualCompliance
+
+# Same 3KP Jacobian, force-history and 80/20 motion/crouch setup. The PPO
+# action is a bounded residual added to SONIC's post-FSQ latent tokens.
+action:
+  _target_: active_adaptation.envs.mdp.sonic_residual.SonicLatentResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+  latent_residual_scale: 0.1

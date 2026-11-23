@@ -1,0 +1,10 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_9pt_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineEstimated9PointForceEstimatorStudent
+
+# Estimator must see the complete causal force-history horizon (oldest offset 16).
+command:
+  estimator_history: 17

@@ -85,7 +85,7 @@ def build(root):
                  **{k:stats([x[k]['mean'] for x in rows if x[k]['mean'] is not None]) for k in ('joint_mae_rad','root_xy_error_m','root_z_error_m','yaw_error_rad','ee_world_error_m','ee_relative_error_m')})
     result['behavior_summary']={}
     for group in sorted(set(x['group'] for x in br)):
-        for force in [5,10,20]:
+        for force in sorted(set(x['force_N'] for x in br if x['group']==group)):
             rows=[x for x in br if x['group']==group and x['force_N']==force]
             result['behavior_summary'][f'{group}/{force}N']=dict(trials=len(rows),survival=float(np.mean([x['physical_survived'] for x in rows])),directed_response_rate=float(np.mean([x['directed_response_success'] for x in rows])),
                 input_supported=all(x['force_input_supported'] for x in rows),response_unit=rows[0]['response_unit'],response=stats([x['response_at_release'] for x in rows if x['response_at_release'] is not None]))
@@ -102,6 +102,20 @@ def build(root):
     prompt_only=any(r.get('prompt_only_behavior',False) for r in runs)
     behavior_protocol=('Behavior supplies force tokens to the trained actor interface; no physical wrench is dispatched.' if prompt_only else 'Behavior uses identical physical loads.')
     lines=['# Compliance evaluation '+(runs[0]['version'] if runs else 'unknown'),'', 'Tracking uses each checkpoint’s own guidance generator. '+behavior_protocol+' No combined score.', '', '## Tracking','', '| Split/category | Trials | Physical completion | Joint MAE (rad) | EE relative (m) | Root XY (m) |','|---|---:|---:|---:|---:|---:|']
+    curriculum_runs=[r for r in runs if r.get('latent_curriculum_alpha_eval') is not None]
+    if curriculum_runs:
+        alpha=min(r['latent_curriculum_alpha_eval'] for r in curriculum_runs)
+        behavior_seed=any(r.get('suite')=='behavior' and str(r.get('latent_eval_seed','')).startswith('fixed upright standing-pose latent') for r in curriculum_runs)
+        seed_note=('Tracking episodes start from their encoded GT clip window; fixed-force and paired zero-force behavior episodes start from a fixed upright standing-pose latent matching the physical reset.' if behavior_seed else 'Each episode starts from its GT-initialized latent.')
+        if all(str(r.get('latent_eval_seed','')).startswith('none; policy outputs') for r in curriculum_runs):
+            seed_note='The actor directly predicts the decoder latent at each step. No reference latent is encoded at reset or during the rollout.'
+        else:
+            seed_note+=' After reset, the action uses that seed plus accumulated policy latent increments. The future-GT latent base is disabled.'
+        lines[3:3]=['## Latent curriculum state','',
+                    f'Evaluation curriculum alpha: {alpha:.1f}. {seed_note} Tracking still uses reference motion for scoring and generating the force prompts.','']
+    relative_rows=[row for run in runs for row in run.get('rows',[]) if row.get('force_frame') in ('robot_yaw','torso_local')]
+    if relative_rows:
+        lines[3:3]=['', '## Direction-frame note', '', 'Shoulder yaw couples and torso/pelvis bending couples use transverse torso-local axes transformed by the full current torso orientation every physics substep. Their directions therefore follow torso yaw, pitch, and roll; loaded points remain attached to the specified bodies.', '']
     for name,s in result['tracking_summary'].items():lines.append(f"| {name} | {s['trials']} | {s['physical_completion_rate']:.1%} | {format_metric(s['joint_mae_rad']['mean'])} | {format_metric(s['ee_relative_error_m']['mean'])} | {format_metric(s['root_xy_error_m']['mean'])} |")
     behavior_heading='## Force-token prompts (no physical wrench)' if prompt_only else '## Fixed forces'
     lines+=['',behavior_heading,'','| Group/force | Trials | Survival | Directed response | Force points in actor interface |','|---|---:|---:|---:|---|']

@@ -1,0 +1,16 @@
+# @package task
+defaults:
+  - /task/G1/G1_sonic_offline_force_physical_student
+  - _self_
+
+name: G1SuperMimicOfflineForcePhysicalStudent
+
+# Preserve the 37-point train37_budget60 prompt and teacher/student task;
+# replace only the frozen low-level residual adapter.
+robot:
+  name: g1_supermimic
+
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6

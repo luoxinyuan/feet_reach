@@ -1,0 +1,8 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_surface5_latent_increment_curriculum
+  - _self_
+
+name: G1SuperMimicSurfaceObservable3LatentIncrementCurriculum
+command:
+  max_contacts: 3

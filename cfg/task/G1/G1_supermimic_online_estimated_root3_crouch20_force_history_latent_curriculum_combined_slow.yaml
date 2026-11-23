@@ -1,0 +1,14 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_root3_crouch20_force_history_latent_curriculum
+  - /compliance_data: compliance_mix_29h_plus_legacy_root3
+  - _self_
+
+name: G1SuperMimicOnlineEstimatedRoot3Crouch20ForceHistoryLatentIncrementCurriculumCombinedSlow
+
+# Keep the 3KP online-Jacobian action and rewards fixed; stretch the transition
+# from GT-base assistance to autonomous accumulated latent increments across
+# most of the longer run.
+command:
+  latent_curriculum_start: 0.05
+  latent_curriculum_end: 0.85

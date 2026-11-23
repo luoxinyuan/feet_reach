@@ -1,0 +1,15 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_root3_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineSpring3Crouch20ForceHistoryCompliance
+
+# Keep the SuperMimic backend, 3KP locations, motion mix, rewards, residual
+# action, and force-history actor interface from the Jacobian teacher task.
+# Only replace online Jacobian force generation with direct next-frame springs.
+command:
+  _target_: active_adaptation.envs.mdp.commands.direct_keypoint_spring.DirectKeypointSpringCommand
+  spring_gain: 80.0
+  estimator_history: 10
+  expected_force_points: 3

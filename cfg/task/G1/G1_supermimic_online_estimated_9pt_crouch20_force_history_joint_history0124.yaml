@@ -1,0 +1,12 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_9pt_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineEstimated9PointJointHistory0124Crouch20ForceHistory
+
+# Use current and past joint-position frames at offsets [0, 1, 2, 4].
+# The force-history input and every other task setting remain unchanged.
+observation:
+  policy:
+    joint_pos_history: {history_steps: [0, 1, 2, 4], noise_std: 0.005}

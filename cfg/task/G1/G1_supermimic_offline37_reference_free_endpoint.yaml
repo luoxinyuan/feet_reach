@@ -1,0 +1,16 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_offline_force_physical_student
+  - _self_
+
+name: G1SuperMimicOffline37ReferenceFreeEndpoint
+
+# Keep the established 37-point low-force physical prompt, dataset, rewards,
+# and force-token interface; remove future-GT goals from the frozen low level.
+command:
+  guidance_cache: /home/xl521/feet_reach/artifacts/offline_force_baseline/train37_budget60
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.EndpointPreviewSuperMimicResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+  preview_correction_scale: 0.36

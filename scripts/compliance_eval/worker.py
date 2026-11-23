@@ -7,8 +7,8 @@ ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT));os.environ
 import numpy as np
 from scripts.compliance_eval.protocol import behavior_rows,envelope,digest
 p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--manifest',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
-p.add_argument('--suite',choices=['tracking','behavior'],required=True);p.add_argument('--zero-residual',action='store_true');p.add_argument('--zero',action='store_true');p.add_argument('--seed-index',type=int,default=0);p.add_argument('--limit',type=int);p.add_argument('--steps',type=int);p.add_argument('--video-output',type=Path);p.add_argument('--video-case');p.add_argument('--video-clip',type=int);p.add_argument('--case');p.add_argument('--force-N',type=float);p.add_argument('--body-relative-bend',action='store_true',help='Recompute bend_forward forces along torso local +X every physics substep');p.add_argument('--guidance-cache',type=Path);p.add_argument('--guidance-cache-map',type=Path,help='JSON mapping each tracking dataset path to an ordered list of compatible cache directories')
-p.add_argument('--add-hands-ee-yaw-case',action='store_true',help='Add an equal-and-opposite forward-force couple at both hand EEs for focused yaw diagnostics')
+p.add_argument('--suite',choices=['tracking','behavior'],required=True);p.add_argument('--zero-residual',action='store_true');p.add_argument('--zero',action='store_true');p.add_argument('--seed-index',type=int,default=0);p.add_argument('--limit',type=int);p.add_argument('--steps',type=int);p.add_argument('--video-output',type=Path);p.add_argument('--video-case');p.add_argument('--video-clip',type=int);p.add_argument('--case');p.add_argument('--force-N',type=float);p.add_argument('--body-relative-bend',action='store_true',help='Recompute bend_forward forces along torso local +X every physics substep');p.add_argument('--spine-projected-lateral-bend',action='store_true',help='Apply lateral bend couples along root-heading lateral projected onto the plane perpendicular to the current torso spine axis');p.add_argument('--guidance-cache',type=Path);p.add_argument('--guidance-cache-map',type=Path,help='JSON mapping each tracking dataset path to an ordered list of compatible cache directories')
+p.add_argument('--add-hands-ee-yaw-case',action='store_true',help='Add an equal-and-opposite forward-force couple at both hand EEs for focused yaw diagnostics');p.add_argument('--behavior-groups',nargs='+',choices=['ee','locomotion','crouch','yaw','bend'],help='Restrict behavior evaluation to selected protocol groups')
 p.add_argument('--offline-prompt-cache-map',type=Path,help='Source-aware offline force-prompt map for OfflineForcePromptCommand');p.add_argument('--ceer-direct-joint-target',action='store_true',help='Bypass the residual actor and feed the current/future full-body reference joint targets directly to the frozen CEER low-level actor')
 p.add_argument('--prompt-only-behavior',action='store_true',help='Provide offline force prompt tokens while disabling physical force dispatch')
 p.add_argument('--preserve-training-sim',action='store_true',help='Keep checkpoint training rewards, terminations, randomization, and episode length for a fixed-motion diagnostic rollout')
@@ -16,11 +16,22 @@ p.add_argument('--supervised-deltaq-checkpoint',type=Path,help='Use standalone f
 p.add_argument('--supervised-q-input-source',choices=['measured','reference'],default='measured',help='Use measured robot joint state (deployment default) or SONIC persistent reference as the supervised model q input')
 p.add_argument('--estimator-audit',action='store_true',help='Measure student direct joint-target estimates and force-token consistency during tracking')
 p.add_argument('--policy-branch',choices=['deploy','teacher'],default='deploy',help='Evaluate deployed student branch or, for RootStudentPPO train checkpoints, the privileged teacher actor')
+p.add_argument('--tracking-standing-seed',action='store_true',
+               help='Initialize a latent curriculum checkpoint from its default standing pose without using the reference clip as an actor latent')
+p.add_argument('--record-contact-forces',action='store_true',
+               help='Record applied point forces and selected contacts')
+p.add_argument('--jacobian-contact-sweep',action='store_true',
+               help='Record best 1/2/3-point allocations at each native contact selection')
+p.add_argument('--jacobian-compare-layout',type=Path,
+               help='Compare a fixed link-local 9KP layout at the same Jacobian sweep states')
 a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True);started=time.monotonic();manifest=json.loads(a.manifest.read_text());video=a.video_case is not None or a.video_clip is not None
+if a.tracking_standing_seed and a.suite!='tracking':
+    p.error('--tracking-standing-seed requires the tracking suite')
 if a.suite=='tracking':
     rows=manifest['clips']; rows=[rows[a.video_clip]] if video else rows
 else:
-    rows=behavior_rows()
+    rows=behavior_rows(manifest['behavior']['cases'],manifest['behavior'].get('magnitudes_by_group'))
+    if a.behavior_groups: rows=[r for r in rows if r['group'] in a.behavior_groups]
     if a.add_hands_ee_yaw_case:
         rows += [dict(name='hands_ee_yaw_couple',group='yaw',sign=-1.,direction=[1.,0.,0.],
                       loads=[['left_hand_mimic',[1.,0.,0.]],['right_hand_mimic',[-1.,0.,0.]]],
@@ -45,6 +56,10 @@ else:
         for row in rows:
             row['force_frame']='torso_local_x_recomputed_each_physics_substep'
             row['name']='bend_forward_body_relative'
+    if a.spine_projected_lateral_bend:
+        if not video or a.video_case not in ('bend_left','bend_right'):
+            raise ValueError('--spine-projected-lateral-bend requires a bend_left or bend_right video')
+        rows[0]['force_frame']='spine_projected_root_lateral'
 if a.limit: rows=rows[:a.limit]
 n=len(rows);seed=manifest['seeds'][a.seed_index]
 import torch
@@ -368,6 +383,26 @@ try:
                 repeat=rows[idx%len(rows)]['repeat'];rng=np.random.default_rng(20261104+repeat)
                 q[k]+=q.new_tensor(rng.normal(0,.003,q.shape[-1]))
             robot.write_root_state_to_sim(root,env_ids=ids);robot.write_joint_state_to_sim(q,torch.zeros_like(q),env_ids=ids)
+            # Curriculum policies normally seed their persistent latent from
+            # the sampled motion clip in ``original(ids)``. Behavior trials
+            # are deliberately reset to the default standing pose, so replace
+            # that clip-dependent seed with the matching static standing goal.
+            # This keeps force and paired zero-force trials on the same neutral
+            # motion prior instead of accidentally commanding a sampled crouch.
+            latent_action=env.action_manager
+            if all(hasattr(latent_action,key) for key in ('seed_latent','latent_offset','current_latent','low_policy','joint_ids','q0')):
+                q_policy=q[:,latent_action.joint_ids]-latent_action.q0
+                nids=len(ids)
+                zeros29=torch.zeros(nids,29,device=device,dtype=q.dtype)
+                gravity=q.new_tensor([0.,0.,-1.]).expand(nids,3)
+                zeros3=torch.zeros(nids,3,device=device,dtype=q.dtype)
+                root_height=(root[:,2]-env.scene.env_origins[ids,2])[:,None]
+                frame=torch.cat((q_policy,zeros29,gravity,zeros3,zeros3,root_height),dim=-1)
+                standing_goal=frame[:,None,:].expand(-1,10,-1).reshape(nids,-1)
+                standing_latent=latent_action.low_policy.encode(standing_goal)
+                latent_action.seed_latent[ids]=standing_latent
+                latent_action.latent_offset[ids]=0.0
+                latent_action.current_latent[ids]=standing_latent
             cmd.joint_pos_boot_protect[ids]=q
             for key in ('force','desired','force_apply_buffer','torque_apply_buffer'):
                 if hasattr(cmd,key):getattr(cmd,key)[ids]=0
@@ -376,9 +411,16 @@ try:
         cmd.before_update=lambda:setattr(cmd,'log_step',cmd.log_step+1)
         cmd.update=lambda:None
         body_ids=torch.zeros(n,2,dtype=torch.long,device=device);vectors=torch.zeros(n,2,3,device=device);offsets=torch.zeros(n,2,3,device=device)
+        robot_relative=torch.zeros(n,dtype=torch.bool,device=device);torso_relative=torch.zeros(n,dtype=torch.bool,device=device)
+        projected_lateral_bend=torch.zeros(n,dtype=torch.bool,device=device)
+        world_force_root_token=torch.zeros(n,dtype=torch.bool,device=device)
         torso_id=robot.body_names.index('torso_link')
         for i in range(n):
             row=rows[i%len(rows)]
+            robot_relative[i]=row.get('force_frame')=='robot_yaw'
+            torso_relative[i]=row.get('force_frame')=='torso_local'
+            projected_lateral_bend[i]=row.get('force_frame')=='spine_projected_root_lateral'
+            world_force_root_token[i]=row.get('force_frame')=='world_vertical_sole'
             for j,(body,v) in enumerate(row['loads']):
                 body_ids[i,j]=robot.body_names.index(body)
                 offsets[i,j]=offsets.new_tensor(row.get('offsets',{}).get(body,[0.,0.,0.]))
@@ -387,6 +429,42 @@ try:
         applied=torch.zeros_like(vectors)
         def force_step(substep):
             t=clock_step*env.step_dt+substep*env.physics_dt;applied.copy_(vectors*envelope(t))
+            if robot_relative.any():
+                # Rotate the prescribed local horizontal yaw-couple directions
+                # with the robot's current heading at every physics substep.
+                from active_adaptation.utils.math import yaw_quat
+                heading=yaw_quat(robot.data.root_quat_w)
+                expanded_heading=heading[:,None,:].expand(-1,applied.shape[1],-1)
+                rotated=quat_apply(expanded_heading,vectors)*envelope(t)
+                applied[robot_relative]=rotated[robot_relative]
+            if torso_relative.any():
+                # Bend vectors use the torso's full local orientation, not
+                # only root yaw. Local X/Y are transverse to the torso's
+                # longitudinal local Z axis, so the force couple continues
+                # to act perpendicular to the torso as it pitches and rolls.
+                torso_quat=robot.data.body_quat_w[:,torso_id]
+                expanded_torso=torso_quat[:,None,:].expand(-1,applied.shape[1],-1)
+                rotated=quat_apply(expanded_torso,vectors)*envelope(t)
+                applied[torso_relative]=rotated[torso_relative]
+            if projected_lateral_bend.any():
+                # Define left/right by the robot's heading-relative lateral
+                # axis, then remove its component along the current torso
+                # spine. Recompute both directions at every physics substep.
+                from active_adaptation.utils.math import yaw_quat
+                root_heading=yaw_quat(robot.data.root_quat_w)
+                lateral=quat_apply(root_heading,vectors.new_tensor([0.,1.,0.]).expand(n,3))
+                torso_quat=robot.data.body_quat_w[:,torso_id]
+                spine=quat_apply(torso_quat,vectors.new_tensor([0.,0.,1.]).expand(n,3))
+                direction=lateral-(lateral*spine).sum(-1,keepdim=True)*spine
+                norm=direction.norm(dim=-1,keepdim=True)
+                fallback=quat_apply(torso_quat,vectors.new_tensor([0.,1.,0.]).expand(n,3))
+                fallback=fallback-(fallback*spine).sum(-1,keepdim=True)*spine
+                direction=torch.where(norm>1e-6,direction/norm.clamp_min(1e-6),fallback/fallback.norm(dim=-1,keepdim=True).clamp_min(1e-6))
+                sign=torch.sign(vectors[:,0,1]).unsqueeze(-1)
+                magnitude=vectors[:,0].norm(dim=-1,keepdim=True)*envelope(t)
+                pair=direction*sign*magnitude
+                applied[projected_lateral_bend,0]=pair[projected_lateral_bend]
+                applied[projected_lateral_bend,1]=-pair[projected_lateral_bend]
             if a.body_relative_bend:
                 # Torso local +X remains perpendicular to its local +Z body axis.
                 torso_forward=quat_apply(robot.data.body_quat_w[:,torso_id],vectors.new_tensor([1.,0.,0.]).expand(n,3))
@@ -409,6 +487,24 @@ try:
                     point_offset=offsets.new_tensor(point['offset'])
                     matches=(body_ids==bid)&((offsets-point_offset).norm(dim=-1)<1e-7)
                     cmd.point_force_buffer[:,pi]=(matches[...,None]*applied).sum(1)
+            elif (hasattr(cmd,'contact_history') and hasattr(cmd,'max_contacts')
+                  and hasattr(cmd,'local_points') and hasattr(cmd,'contact_body')):
+                # Observable-surface actors encode each currently applied load
+                # as a contact token (body id, body-local point, root-frame
+                # position/force). During fixed-force tests, mirror the exact
+                # physical stimulus into those slots; otherwise the actor
+                # would see zero surface prompts while the simulator is pushed.
+                cmd.force.zero_();cmd.active.zero_();cmd.local_points.zero_();cmd.contact_body.zero_()
+                count=min(cmd.max_contacts,body_ids.shape[1])
+                if count:
+                    cmd.contact_body[:,:count]=body_ids[:,:count]
+                    cmd.local_points[:,:count]=offsets[:,:count]
+                    cmd.force[:,:count]=applied[:,:count]
+                    if world_force_root_token.any():
+                        root_q=robot.data.root_quat_w[:,None,:].expand(-1,count,-1)
+                        root_force=quat_apply_inverse(root_q,applied[:,:count])
+                        cmd.force[world_force_root_token,:count]=root_force[world_force_root_token]
+                    cmd.active[:,:count]=applied[:,:count].norm(dim=-1)>1e-5
             if a.prompt_only_behavior:
                 # Keep force traces and simulator buffers at zero. The prompt
                 # lives only in point_force_buffer and is consumed by policy obs.
@@ -472,7 +568,105 @@ try:
         else:
             assert {'joint_target','priv'}.issubset(set(policy.in_keys)),f'Oracle teacher inputs missing: {policy.in_keys}'
         actor_inputs=list(policy.in_keys)
-    torch.manual_seed(seed);td=env.reset();env.base_env.episode_length_buf.zero_()
+    if a.tracking_standing_seed:
+        from active_adaptation.envs.mdp.supermimic_residual import (
+            SuperMimicDirectLatentCurriculumAction, SuperMimicLatentIncrementCurriculumAction,
+            SuperMimicResidualAction,
+        )
+        if not isinstance(manager,(SuperMimicLatentIncrementCurriculumAction,
+                                   SuperMimicDirectLatentCurriculumAction)):
+            raise ValueError('--tracking-standing-seed requires a latent curriculum action manager')
+        cmd.step_schedule(1.0)
+
+        @torch.no_grad()
+        def reset_without_reference(ids):
+            SuperMimicResidualAction.reset(manager,ids)
+            if isinstance(manager,SuperMimicLatentIncrementCurriculumAction):
+                q=robot.data.default_joint_pos[ids][:,manager.joint_ids]-manager.q0
+                gravity=q.new_tensor([0.,0.,-1.]).expand(len(ids),-1)
+                height=robot.data.default_root_state[ids,2:3]
+                zeros3=q.new_zeros(len(ids),3)
+                frame=torch.cat((q,torch.zeros_like(q),gravity,zeros3,zeros3,height),dim=-1)
+                standing_latent=manager.low_policy.encode(frame.repeat(1,10))
+                manager.seed_latent[ids]=standing_latent
+                manager.current_latent[ids]=standing_latent
+                manager.latent_offset[ids]=0.
+            else:
+                manager.last_latent[ids]=0.
+                manager.current_latent[ids]=0.
+
+        callbacks=env.base_env._reset_callbacks
+        assert manager.reset in callbacks
+        callbacks[callbacks.index(manager.reset)]=reset_without_reference
+    sweep_step=0
+    sweep_rows={}
+    if a.jacobian_contact_sweep:
+        from scripts.compliance_eval.jacobian_contact_sweep import best_allocations, contact_subsets
+        from active_adaptation.envs.mdp.commands.jacobian_compliance import JacobianComplianceCommand
+        if a.suite!='tracking' or not isinstance(cmd,JacobianComplianceCommand):
+            raise ValueError('--jacobian-contact-sweep requires online Jacobian tracking')
+        subsets=contact_subsets(cmd)
+        native_select=cmd._select
+        if a.jacobian_compare_layout:
+            from scripts.compliance_eval.jacobian_contact_sweep import (
+                best_motion_reconstruction, offset_point_geometry, reference_transition,
+            )
+            points=json.loads(a.jacobian_compare_layout.read_text())['points']
+            if len(points)!=len(cmd.point_ids):
+                raise ValueError('Layouts must have the same number of candidate points')
+            layout_bodies=torch.tensor([robot.body_names.index(point['body']) for point in points],
+                                       device=cmd.point_ids.device)
+            layout_offsets=cmd.generalized_target.new_tensor([point['offset'] for point in points])
+
+        def record_contact_sweep(ids):
+            native_select(ids)
+            ids=ids[cmd.t[ids]<cmd.lengths[ids]]
+            for batch in ids.split(16):
+                if not len(batch):
+                    continue
+                scores, strength=best_allocations(cmd,batch,subsets)
+                fields=dict(env_id=batch,step=torch.full_like(batch,sweep_step),motion_step=cmd.t[batch],
+                            native_count=cmd.active[batch].sum(-1),target_norm=strength,
+                            relative_error=torch.stack([s[0] for s in scores],dim=-1),
+                            force_sum_N=torch.stack([s[1] for s in scores],dim=-1),
+                            actual_count=torch.stack([s[2] for s in scores],dim=-1))
+                for k,score in enumerate(scores,1):
+                    fields[f'best_points_{k}']=score[3]
+                if a.jacobian_compare_layout:
+                    geometry=offset_point_geometry(cmd,batch,layout_bodies,layout_offsets)
+                    other,_=best_allocations(cmd,batch,subsets,geometry=geometry)
+                    delta=reference_transition(cmd,batch)
+                    fields['new_relative_error']=torch.stack([s[0] for s in other],dim=-1)
+                    fields['new_force_sum_N']=torch.stack([s[1] for s in other],dim=-1)
+                    fields['old_motion_error'],fields['motion_norm']=best_motion_reconstruction(
+                        cmd.point_jacobians[batch],delta,subsets)
+                    fields['new_motion_error'],_=best_motion_reconstruction(geometry[0],delta,subsets)
+                for name,value in fields.items():
+                    sweep_rows.setdefault(name,[]).append(value.detach().cpu().numpy())
+
+        cmd._select=record_contact_sweep
+    torch.manual_seed(seed);td=env.reset()
+    if a.tracking_standing_seed:
+        def forbid_reference_encoding(*args,**kwargs):
+            raise RuntimeError('Unexpected SuperMimic encoder call after the standing seed reset')
+        manager.low_policy.encode=forbid_reference_encoding
+    # Curriculum checkpoints are trained to end with a policy-owned latent
+    # state. The eval process does not call PPO.step_schedule(), so explicitly
+    # select that final autonomous stage after reset has seeded each episode
+    # from its initial GT latent. This keeps the allowed episode-start seed
+    # while preventing future motion windows from entering the action path.
+    latent_eval_seed=None
+    if hasattr(cmd,'latent_curriculum_alpha'):
+        cmd.step_schedule(1.0)
+        if cfg.task.action.get('_target_','').endswith('.SuperMimicDirectLatentCurriculumAction'):
+            latent_eval_seed='none; policy outputs the full decoder latent'
+        elif a.tracking_standing_seed:
+            latent_eval_seed='default standing-pose latent; reference encoding disabled'
+        elif a.suite=='behavior':
+            latent_eval_seed='fixed upright standing-pose latent matching the physical reset; future-GT base disabled'
+        else:
+            latent_eval_seed='episode-start GT latent; future-GT base disabled'
+    env.base_env.episode_length_buf.zero_()
     if a.suite=='tracking':
         for i,row in enumerate(rows):
             assert int(cmd._motion.motion_id[i,0])==row['source_motion_id']
@@ -485,6 +679,7 @@ try:
         if hasattr(low,'boot_delay'):low.boot_delay.copy_(low.delay)
     initial_q=robot.data.joint_pos.clone();initial_root=(robot.data.root_pos_w-env.scene.env_origins).clone()
     hands=[robot.body_names.index(f'{s}_hand_mimic') for s in ('left','right')];torso=robot.body_names.index('torso_link')
+    ankle_ids=[robot.body_names.index(f'{side}_ankle_roll_link') for side in ('left','right')]
     motionhands=[cmd.dataset.body_names.index(f'{s}_hand_mimic') for s in ('left','right')]
     joint_groups={}
     for group in ['left_arm','right_arm','legs','waist']:
@@ -514,6 +709,7 @@ try:
     def save(k,v):record.setdefault(k,[]).append(v.detach().cpu().numpy().astype(np.float32))
     with torch.no_grad(),set_exploration_type(ExplorationType.MODE):
         for step in range(steps+1):
+            sweep_step=step
             if step:
                 clock_step=step-1
                 if supervised is not None:
@@ -568,9 +764,17 @@ try:
                         pass
                     else:
                         if a.suite=='tracking' and 'force_gt_' in td and 'force_gt_' in policy.in_keys:
-                        # Audit the exact prompt tensor seen by the deployed
-                        # actor immediately before its action is computed.
-                            prompt=td['force_gt_'].reshape(n,-1,3).float()*30.0
+                            # Audit force magnitudes in the exact prompt seen
+                            # before action selection. Surface prompts also
+                            # contain body/point/position metadata, so only
+                            # their force channels are force vectors.
+                            if hasattr(cmd,'contact_history') and hasattr(cmd,'token_dim'):
+                                token_dim=len(robot.body_names)+10
+                                token=td['force_gt_'].reshape(n,len(cmd.history_offsets),cmd.max_contacts,token_dim).float()
+                                start=len(robot.body_names)+6
+                                prompt=token[:,0,:,start:start+3]*30.0
+                            else:
+                                prompt=td['force_gt_'].reshape(n,-1,3).float()*30.0
                             actor_prompt_input.append(prompt.norm(dim=-1).sum(-1).detach().cpu().numpy())
                         td=policy(td)
                         if estimator_audit_state is not None:
@@ -637,6 +841,8 @@ try:
             save('root',root);save('yaw',yaw_from_quat(quat));save('hands_b',hb);save('torso_relative_quat',rel);save('root_velocity',robot.data.root_lin_vel_w)
             if a.suite=='tracking':
                 save('reference_root',cmd._motion.root_pos_w[:,0]-env.scene.env_origins)
+                save('torso_quat_world',robot.data.body_quat_w[:,torso])
+                save('ankle_pos_world',robot.data.body_pos_w[:,ankle_ids]-env.scene.env_origins[:,None])
                 save('motion_step',cmd._motion.step[:,0]);save('motion_id',cmd._motion.motion_id[:,0])
                 save('episode_length',env.base_env.episode_length_buf)
             if hasattr(manager,'reference'):
@@ -654,6 +860,19 @@ try:
             save('joint_pos',q);save('force_sum_N',forces.norm(dim=-1).sum(-1));save('force_peak_N',forces.norm(dim=-1).amax(-1));save('active_points',(forces.norm(dim=-1)>.05).sum(-1))
             save('force_slew_N_s',(forces-prev_force).norm(dim=-1).amax(-1)/env.step_dt);prev_force.copy_(forces)
             save('pelvis_force_N',forces[:,robot.body_names.index('pelvis')].norm(dim=-1));save('net_force',forces.sum(1));save('net_moment',(torch.cross(cmd.position_apply_buffer-robot.data.root_pos_w[:,None],forces,dim=-1)+cmd.torque_apply_buffer).sum(1))
+            if a.tracking_standing_seed or a.record_contact_forces:
+                if hasattr(cmd,'contact_triangle'):
+                    save('point_forces_world_N',cmd.force)
+                    save('point_body_ids',cmd.contact_body)
+                    save('point_local_pos_m',cmd.local_points)
+                    if a.record_contact_forces:
+                        save('point_selected',cmd.active)
+                else:
+                    save('point_forces_world_N',forces[:,cmd.point_ids])
+                    if a.record_contact_forces and hasattr(cmd,'slots') and hasattr(cmd,'active'):
+                        selected=cmd.active.new_zeros((n,len(cmd.point_ids)))
+                        selected.scatter_(1,cmd.slots,cmd.active)
+                        save('point_selected',selected)
             if a.suite=='tracking':
                 refq=cmd._motion.joint_pos[:,0,cmd.joint_idx_motion];dq=(q[:,cmd.joint_idx_asset]-refq).abs()
                 save('joint_mae_rad',dq.mean(-1))
@@ -677,18 +896,37 @@ try:
     if actor_prompt_input:arrays['actor_prompt_input_sum_N']=np.stack(actor_prompt_input)
     mismatch=None
     np.savez_compressed(a.output/'traces.npz',**arrays)
-    points=(list(cmd.point_names) if hasattr(cmd,'point_names') else
-            [robot.body_names[int(i)] for i in cmd.point_ids] if hasattr(cmd,'point_ids') else [])
+    if a.jacobian_contact_sweep:
+        np.savez_compressed(a.output/'jacobian_contact_sweep.npz',
+                            **{name:np.concatenate(values) for name,values in sweep_rows.items()})
+    point_names=(list(cmd.point_names) if hasattr(cmd,'point_names') else
+                 [robot.body_names[int(i)] for i in cmd.point_ids] if hasattr(cmd,'point_ids') else [])
+    if hasattr(cmd,'surface') and hasattr(cmd,'contact_history'):
+        # The observable-surface force interface is body/point agnostic over
+        # the actual mesh atlas, rather than the passive whole-body command's
+        # inherited keypoint list.
+        point_names=['observable_surface_contact_tokens']
+        force_input_bodies=sorted({robot.body_names[int(i)] for i in cmd.surface.body.unique().tolist()})
+    else:
+        force_input_bodies=([robot.body_names[int(i)] for i in cmd.point_ids]
+                            if hasattr(cmd,'point_ids') else point_names)
+    # Point labels (for example ``root`` or ``left_ee``) are not body names.
+    # Report the resolved rigid bodies so behavior support checks compare the
+    # protocol's loaded bodies against the actor's actual force-token inputs.
     result=dict(version=manifest['version'],suite=a.suite,policy_branch=a.policy_branch,checkpoint=str(a.checkpoint.resolve()),checkpoint_sha256=digest(a.checkpoint),manifest_sha256=digest(a.manifest),
                 zero_residual_control=a.zero_residual,zero_force_control=a.zero,seed=seed,rows=rows,envs=n,steps=steps,dt=float(env.step_dt),wall_seconds=time.monotonic()-started,phase=phase,
-                force_history_offsets=history_offsets if supervised is not None else getattr(cmd,'force_prompt_history_offsets',None),force_input_bodies=points,paired_preforce_max_difference_m=mismatch,
+                force_history_offsets=history_offsets if supervised is not None else getattr(cmd,'force_prompt_history_offsets',getattr(cmd,'history_offsets',None)),force_input_bodies=force_input_bodies,force_input_point_names=point_names,paired_preforce_max_difference_m=mismatch,
                 prompt_only_behavior=bool(a.prompt_only_behavior),preserve_training_sim=bool(a.preserve_training_sim),physical_force_dispatch=bool(getattr(cmd,'force_apply_world',False)),
+                latent_curriculum_alpha_eval=float(cmd.latent_curriculum_alpha) if hasattr(cmd,'latent_curriculum_alpha') else None,
+                latent_eval_seed=latent_eval_seed,
                 joint_names=robot.joint_names,configuration=saved_config,video=video,actor_inputs=(['direct full-body joint targets at reference offsets [0,2,4,8,16]'] if a.ceer_direct_joint_target else actor_inputs),
                 direct_ceer_joint_target=a.ceer_direct_joint_target,
                 supervised_deltaq_checkpoint=str(a.supervised_deltaq_checkpoint.resolve()) if a.supervised_deltaq_checkpoint else None,
                 supervised_deltaq_checkpoint_sha256=digest(a.supervised_deltaq_checkpoint) if a.supervised_deltaq_checkpoint else None,
                 supervised_q_input_source=a.supervised_q_input_source if supervised_current_q else None,
                 action_adapter=('absolute next-step joint target - persistent SONIC reference -> inverse-tanh increment' if supervised_current_q else 'physical next-step delta-q -> inverse-tanh reference increment') if supervised is not None else None)
+    if a.record_contact_forces:
+        result['contact_trace_body_names']=list(robot.body_names)
     result['guidance_cache_map']={dataset:[dict(path=c['path'],manifest_sha256=c['manifest_sha256']) for c in caches] for dataset,caches in cache_by_dataset.items()} if guidance_cache_map else None
     result['guidance_cache_map_sha256']=digest(a.guidance_cache_map) if a.guidance_cache_map else None
     result['offline_prompt_cache_map']=offline_prompt_map if a.offline_prompt_cache_map else None

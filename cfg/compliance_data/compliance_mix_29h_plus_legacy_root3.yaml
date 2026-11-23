@@ -1,0 +1,32 @@
+# @package task.command.dataset
+# Equal high-level sampling mass for the newer ComplianceMix-29h dataset and
+# the legacy root3/crouch dataset mix. Within each source, preserve its prior
+# category proportions.
+mem_paths:
+  - compliance_mix_29h_v1_legacy27/train/single_arm
+  - compliance_mix_29h_v1_legacy27/train/both_arms
+  - compliance_mix_29h_v1_legacy27/train/locomotion
+  - compliance_mix_29h_v1_legacy27/train/yaw
+  - compliance_mix_29h_v1_legacy27/train/crouch
+  - compliance_mix_29h_v1_legacy27/train/bend
+  - compliance_mix_29h_v1_legacy27/train/still
+  - compliance_mix_29h_v1_legacy27/train/mixed
+  - ../artifacts/ceer_segmented_jacobian/20261027-ee-root3-multi10/dataset
+  - crouch_lowlevel/train
+path_weights:
+  - 0.10265548147639795
+  - 0.06843692428305745
+  - 0.08554235328135015
+  - 0.0513205643264087
+  - 0.038066824845555065
+  - 0.0513275031086695
+  - 0.0513241762952568
+  - 0.0513261723833044
+  - 0.47619047619047616
+  - 0.023809523809523808
+sample_once: true
+resample_on_reset: true
+position_z_offset: 0.035
+clamp_joint_targets: false
+buffer_float_dtype: float16
+motion_allowlists: null

@@ -1,0 +1,8 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_root3_crouch20_force_history
+  - _self_
+name: G1SuperMimicRoot3ReferenceFree
+# Full motion labels are allowed only in force generation, rewards and critic.
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.ReferenceFreeSuperMimicResidualAction

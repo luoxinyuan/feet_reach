@@ -1,0 +1,13 @@
+# @package algo
+defaults:
+  - ceer_force_prompt_teacher
+  - _self_
+_target_: active_adaptation.learning.hierarchical.flow_latent.FlowLatentPPO
+name: supermimic_flow_latent
+flow_horizon: 1
+flow_width: 512
+flow_steps: 8
+flow_lr: 0.0001
+flow_batch_size: 2048
+flow_updates: 8
+flow_warmup: 50

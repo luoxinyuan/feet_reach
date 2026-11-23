@@ -1,0 +1,7 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_surface_random
+  - _self_
+name: G1SuperMimicSurfaceOptimized
+command:
+  contact_mode: optimized

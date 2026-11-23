@@ -1,0 +1,9 @@
+# Student initialized from the completed SuperMimic 9-point force-history teacher.
+# Network, optimizer, and stage logic are shared with the audited DenseForcePPO.
+# @package algo
+defaults:
+  - ceer_dense_force
+  - _self_
+
+name: supermimic_force_estimator_student
+phase: distill

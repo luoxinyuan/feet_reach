@@ -1,0 +1,7 @@
+# @package algo
+defaults:
+  - supermimic_force_prompt_student
+  - _self_
+
+name: supermimic_force_prompt_student_adapt
+phase: adapt

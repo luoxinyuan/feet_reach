@@ -1,0 +1,26 @@
+# @package task.command.dataset
+# ComplianceMix-29h-v1: reset-time behavior probabilities proportional to selected hours.
+mem_paths:
+  - compliance_mix_29h_v1/train/single_arm
+  - compliance_mix_29h_v1/train/both_arms
+  - compliance_mix_29h_v1/train/locomotion
+  - compliance_mix_29h_v1/train/yaw
+  - compliance_mix_29h_v1/train/crouch
+  - compliance_mix_29h_v1/train/bend
+  - compliance_mix_29h_v1/train/still
+  - compliance_mix_29h_v1/train/mixed
+path_weights:
+  - 0.2053109629527959
+  - 0.1368738485661149
+  - 0.1710847065627003
+  - 0.1026411286528174
+  - 0.07613364969111013
+  - 0.102655006217339
+  - 0.1026483525905136
+  - 0.1026523447666088
+sample_once: true
+resample_on_reset: true
+position_z_offset: 0.035
+clamp_joint_targets: false
+buffer_float_dtype: float16
+motion_allowlists: null

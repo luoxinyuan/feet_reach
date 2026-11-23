@@ -33,7 +33,9 @@ class Video:
                     dst.SetNormalsInterpolation(src.GetNormalsInterpolation());UsdGeom.Xformable(dst).AddTransformOp().Set(cache.GetLocalToWorldTransform(prim)*bw.GetInverse());UsdShade.MaterialBindingAPI.Apply(dst.GetPrim()).Bind(cyan)
             assert count>10
         self.arrows=[]
-        for i,color in enumerate([(1.,.3,.05),(1.,.75,.05),(.95,.15,.65)]):
+        colors=[(1.,.3,.05),(1.,.75,.05),(.95,.15,.65),(.5,.9,.2),(.65,.45,1.)]
+        arrow_count=cmd.max_contacts if tracking and hasattr(cmd,'contact_triangle') and not prompt_only else 3
+        for i,color in enumerate(colors[:arrow_count]):
             mat=material(f'/World/Eval/FMaterial{i}',color)
             shaft=UsdGeom.Cylinder.Define(stage,f'/World/Eval/F{i}/shaft');shaft.CreateAxisAttr('Z');shaft.CreateRadiusAttr(.012)
             head=UsdGeom.Cone.Define(stage,f'/World/Eval/F{i}/head');head.CreateAxisAttr('Z');head.CreateRadiusAttr(.035)
@@ -48,6 +50,12 @@ class Video:
             pos=cmd._motion.body_pos_w[0,0].cpu().numpy()+self.env.scene.env_origins[0].cpu().numpy();quat=cmd._motion.body_quat_w[0,0].cpu().numpy()
             for op,i in self.ghost:op.Set(self.matrix(pos[i],quat[i]))
         force=cmd.force_apply_buffer[0].cpu().numpy();pos=cmd.position_apply_buffer[0].cpu().numpy();names=robot.body_names
+        if self.tracking and hasattr(cmd,'contact_triangle') and not self.prompt_only:
+            from active_adaptation.utils.math import quat_apply
+            bids=cmd.contact_body[0]
+            pos=(robot.data.body_pos_w[0,bids]+quat_apply(robot.data.body_quat_w[0,bids],cmd.local_points[0])).cpu().numpy()
+            force=cmd.force[0].cpu().numpy()
+            names=[robot.body_names[i] for i in bids.tolist()]
         if self.prompt_only:
             import torch
             from active_adaptation.utils.math import quat_apply

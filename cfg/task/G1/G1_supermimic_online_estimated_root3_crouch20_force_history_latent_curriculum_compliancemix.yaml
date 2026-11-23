@@ -1,0 +1,7 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_root3_crouch20_force_history_latent_curriculum
+  - /compliance_data: compliance_mix_29h_v1
+  - _self_
+
+name: G1SuperMimicOnlineEstimatedRoot3Crouch20ForceHistoryLatentIncrementCurriculumComplianceMix

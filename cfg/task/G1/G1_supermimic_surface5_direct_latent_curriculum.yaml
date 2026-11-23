@@ -1,0 +1,9 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_surface5_latent_increment_curriculum
+  - _self_
+
+name: G1SuperMimicSurface5DirectLatentCurriculum
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicDirectLatentCurriculumAction
+  minimum_policy_weight: 0.2

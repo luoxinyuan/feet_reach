@@ -1,0 +1,25 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_surface_random
+  - _self_
+name: G1SuperMimicSurfaceObservable3
+command:
+  _target_: active_adaptation.envs.mdp.commands.observable_surface.ObservableSurfaceCommand
+  max_contacts: 3
+  geometry_path: artifacts/ceer_segmented_jacobian/geometry.json
+  pool_size: 128
+  upper_body: true
+  full_span: true
+  coverage_prior: 0.3
+  covariance_path: null
+  spring_k: 80.0
+  contact_period: 0.8
+  selection_chunk: 64
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.LatentEndpointSuperMimicResidualAction
+  latent_scale: 2.0
+  interpolation_frames: 10
+observation:
+  policy:
+    sonic_reference: {enabled: false}
+    latent_reference: {}

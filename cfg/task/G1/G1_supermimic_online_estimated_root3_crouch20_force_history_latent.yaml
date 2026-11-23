@@ -1,0 +1,15 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_root3_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineEstimatedRoot3Crouch20ForceHistoryLatentResidualCompliance
+
+# Preserve the 3KP online Jacobian, force-history observations, rewards, and
+# motion/crouch data mixture. The PPO action is added to the frozen encoder's
+# 32-D motion latent before the frozen SuperMimic decoder.
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicLatentResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+  latent_residual_scale: 0.1

@@ -1,0 +1,14 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_root3_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineEstimatedRoot3Crouch20ForceHistoryDirectLatent
+
+# Keep the same online 3KP Jacobian command, force history, reward, and data
+# mixture. The actor's bounded 32-D output goes straight to SuperMimic's frozen
+# decoder; no dataset motion goal is encoded as a base latent.
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicDirectLatentAction
+  reference_speed: 2.0
+  max_reference_error: 0.6

@@ -1,0 +1,23 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_online_estimated_root3_crouch20_force_history
+  - _self_
+
+name: G1SuperMimicOnlineEstimatedRoot3Crouch20ForceHistoryLatentIncrementCurriculum
+
+# Same online 3KP Jacobian, force history, dataset mixture, and reward setup.
+# The command adds only the current policy-owned latent state to observations.
+command:
+  _target_: active_adaptation.envs.mdp.commands.supermimic_latent_curriculum.SuperMimicLatentCurriculumCommand
+  latent_curriculum_start: 0.15
+  latent_curriculum_end: 0.80
+
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicLatentIncrementCurriculumAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+  latent_increment_scale: 0.025
+
+observation:
+  policy:
+    latent_reference: {}

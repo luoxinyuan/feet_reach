@@ -1,0 +1,12 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_root3_reference_free
+  - _self_
+
+name: G1SuperMimicRoot3ReferenceFreeEndpointInterpolation
+
+# Same online 3KP root + two hand force-history task; only change how the
+# reference-free policy supplies the frozen SuperMimic's ten goal frames.
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.EndpointInterpolationSuperMimicResidualAction
+  endpoint_offset_scale: 0.36

@@ -131,3 +131,60 @@ def current_supermimic_observation(robot, asset_joint_ids, q0, previous_action, 
     proprio = history.push(q - q0, qd, robot.data.root_ang_vel_b,
                            robot.data.projected_gravity_b, previous_action)
     return proprio
+
+
+def make_reference_free_supermimic_goal(reference, robot, env_origins, q0,
+                                         endpoint_correction=None):
+    """Ten self-generated goal frames; no dataset or reference-motion access.
+
+    Constant-velocity joint preview from the residual-owned reference, bounded
+    by joint limits. Root goal retains observed height/translation/yaw rate,
+    with upright orientation and zero roll/pitch rate. All root quantities are
+    current proprioceptive measurements, never desired motion labels.
+    """
+    time = torch.arange(10, device=q0.device, dtype=q0.dtype)[None, :, None] * reference.dt
+    proposal = reference.q[:, None] + time * reference.velocity[:, None]
+    if endpoint_correction is not None:
+        alpha = torch.linspace(0., 1., 10, device=q0.device, dtype=q0.dtype)[None, :, None]
+        proposal = proposal + alpha * endpoint_correction[:, None]
+    q = proposal.clamp(reference.lower[:, None], reference.upper[:, None])
+    if endpoint_correction is None:
+        qd = reference.velocity[:, None].expand_as(q).clone()
+        qd[(proposal < reference.lower[:, None]) | (proposal > reference.upper[:, None])] = 0.
+    else:
+        previous_q = torch.cat((reference.q[:, None], q[:, :-1]), dim=1)
+        qd = (q - previous_q) / reference.dt
+    n = q.shape[0]
+    gravity = torch.zeros(n, 10, 3, device=q.device); gravity[..., 2] = -1.
+    angular = torch.zeros_like(gravity)
+    angular[..., 2] = robot.data.root_ang_vel_w[:, 2:3]
+    current_rot = quat_to_mat(robot.data.root_quat_w)
+    linear = mtv(heading_mat(current_rot), robot.data.root_lin_vel_w)[:, None].expand(-1, 10, -1)
+    height = (robot.data.root_pos_w[:, 2] - env_origins[:, 2])[:, None, None].expand(-1, 10, -1)
+    return torch.cat([q-q0, qd, gravity, angular, linear, height], -1).flatten(1)
+
+
+def make_endpoint_interpolation_supermimic_goal(robot, env_origins, q0,
+                                                  current_q, endpoint_q,
+                                                  lower, upper, dt):
+    """Build a ten-frame straight-line preview from measured q to one endpoint.
+
+    Intermediate joint targets are deterministic interpolation points; no
+    velocity extrapolation or future motion reference is used. Root goal
+    fields remain current-state measurements as in
+    ``make_reference_free_supermimic_goal``.
+    """
+    alpha = torch.arange(1, 11, device=q0.device, dtype=q0.dtype)[None, :, None] / 10.
+    delta = endpoint_q - current_q
+    proposal = current_q[:, None] + alpha * delta[:, None]
+    q = proposal.clamp(lower[:, None], upper[:, None])
+    previous_q = torch.cat((current_q[:, None], q[:, :-1]), dim=1)
+    qd = (q - previous_q) / dt
+    n = q.shape[0]
+    gravity = torch.zeros(n, 10, 3, device=q.device); gravity[..., 2] = -1.
+    angular = torch.zeros_like(gravity)
+    angular[..., 2] = robot.data.root_ang_vel_w[:, 2:3]
+    current_rot = quat_to_mat(robot.data.root_quat_w)
+    linear = mtv(heading_mat(current_rot), robot.data.root_lin_vel_w)[:, None].expand(-1, 10, -1)
+    height = (robot.data.root_pos_w[:, 2] - env_origins[:, 2])[:, None, None].expand(-1, 10, -1)
+    return torch.cat([q-q0, qd, gravity, angular, linear, height], -1).flatten(1)

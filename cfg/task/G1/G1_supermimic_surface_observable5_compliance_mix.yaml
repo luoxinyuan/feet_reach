@@ -1,0 +1,6 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_surface_observable5
+  - /compliance_data: compliance_mix_29h_v1
+  - _self_
+name: G1SuperMimicSurfaceObservable5ComplianceMix

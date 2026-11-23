@@ -134,7 +134,14 @@ class DenseForcePPO(RootPPOPolicy):
         if source!=self.phase and (source,self.phase) not in [('teacher','distill'),('distill','finetune')]:
             raise ValueError(f'Invalid stage transition {source} -> {self.phase}')
         super().load_state_dict(state_dict,strict=strict)
-        plain(self.estimator).load_state_dict(state_dict['estimator'])
+        # A teacher checkpoint's estimator was never used by the teacher
+        # policy.  In particular, its input window can differ from the
+        # student window (e.g. 10 vs. 17 causal frames), so initialize the
+        # student estimator from scratch at teacher -> distill.
+        if source != 'teacher' or self.phase != 'distill':
+            plain(self.estimator).load_state_dict(state_dict['estimator'], strict=strict)
+        else:
+            print('[DenseForcePPO] Teacher -> distill: initialized force estimator from scratch.', flush=True)
         self.teacher.load_state_dict(state_dict['actor'] if source=='teacher' else state_dict['teacher'])
         if source==self.phase:
             for name in ('actor','critic','estimator'):

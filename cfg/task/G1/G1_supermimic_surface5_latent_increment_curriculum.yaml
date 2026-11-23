@@ -1,0 +1,25 @@
+# @package task
+defaults:
+  - /task/G1/G1_supermimic_surface_observable5
+  - _self_
+
+name: G1SuperMimicSurfaceObservable5LatentIncrementCurriculum
+
+command:
+  _target_: active_adaptation.envs.mdp.commands.observable_surface_latent_curriculum.ObservableSurfaceLatentCurriculumCommand
+  latent_curriculum_start: 0.15
+  latent_curriculum_end: 0.80
+  max_contacts: 5
+  contact_mode: random
+  history_offsets: [0, 1, 2, 4, 8, 16]
+  geometry_path: /home/xl521/feet_reach/artifacts/ceer_segmented_jacobian/geometry.json
+
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicLatentIncrementCurriculumAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+  latent_increment_scale: 0.025
+
+observation:
+  policy:
+    latent_reference: {}

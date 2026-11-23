@@ -100,7 +100,8 @@ class FrozenSonic(nn.Module):
         return super().train(False)
 
     @torch.no_grad()
-    def forward(self, q_reference, orientation_6d, proprioception, qd_reference=None):
+    def forward(self, q_reference, orientation_6d, proprioception, qd_reference=None,
+                latent_residual=None):
         n = q_reference.shape[0]
         if q_reference.ndim == 2:
             q_reference = q_reference[:, None].expand(-1, self.frames, -1)
@@ -116,7 +117,11 @@ class FrozenSonic(nn.Module):
         # frames, before reshaping to (10, 58); do not interleave q/qd.
         command = torch.cat((q_reference.flatten(1), qd_reference.flatten(1)), -1)
         tokenizer = torch.cat((indices, command.flatten(1), orientation_6d.flatten(1)), -1)
-        return self.model({'actor_obs': proprioception[:, None], 'tokenizer': tokenizer[:, None]})[:, 0]
+        return self.model(
+            {'actor_obs': proprioception[:, None], 'tokenizer': tokenizer[:, None]},
+            latent_residual=latent_residual,
+            latent_residual_mode='post_quantization',
+        )[:, 0]
 
 class ResidualReference:
     """Persistent joint reference; only reset(actual_q) and student actions write it."""

@@ -1,0 +1,30 @@
+# @package task
+defaults:
+  - /task/G1/G1_ceer_compliance
+  - _self_
+name: G1SuperMimicSurfaceRandom
+robot:
+  name: g1_supermimic
+command:
+  _target_: active_adaptation.envs.mdp.commands.surface_compliance.SurfaceComplianceCommand
+  surface_path: /home/xl521/feet_reach/artifacts/surface_compliance/geometry
+  contact_mode: random
+  population: 12
+  position_iterations: 4
+  selection_chunk: 256
+  history_offsets: [0, 1, 2, 4, 8, 16]
+  dataset:
+    mem_paths: [passive_whole_body_full/train, crouch_lowlevel/train]
+    path_weights: [0.8, 0.2]
+action:
+  _target_: active_adaptation.envs.mdp.supermimic_residual.SuperMimicResidualAction
+  reference_speed: 2.0
+  max_reference_error: 0.6
+observation:
+  policy:
+    upper_body_forces_b: {enabled: false}
+  force_gt_:
+    surface_contacts: {}
+reward:
+  tracking:
+    ee_tracking: {weight: 0.0, enabled: false}
