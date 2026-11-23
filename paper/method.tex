@@ -1,0 +1,151 @@
+\section{Method}
+\label{sec:method}
+
+Our approach combines online Jacobian-based force prompting, compliance-oriented data selection, and curriculum-guided teacher--student learning. A prompting module converts reference motion into forces at selected body keypoints. A high-level policy observes the resulting interaction and updates a latent motion state, which is executed by a frozen pretrained SuperMimic decoder. A curriculum gradually removes the time-varying reference input to the decoder.
+
+\subsection{Online Jacobian-Based Force Prompting}
+\label{sec:jacobian_prompt}
+
+\paragraph{Keypoints and motion intent.}
+Let $\{p_i(s_t)\}_{i=1}^{N}$ be a set of candidate keypoints attached to robot links. At time $t$, we select an active subset $\mathcal{I}_t$, and stack its point forces into $f_t\in\mathbb{R}^{3|\mathcal{I}_t|}$. Thus, $N$ denotes the number of candidate keypoints, not necessarily the number of simultaneously applied forces. People typically guide the robot with one or two hands, which motivates using only a few simultaneous contacts. We allow up to three active points to give the force allocation some flexibility, and apply forces at the selected link origins.
+
+We construct the force prompt with two objectives. First, forces at the selected contact points should induce joint torques that reflect the reference joint motion. Second, the net force and net moment about the base should reflect the reference base translation and turning, respectively. Together, these objectives express both aspects of whole-body motion through a small set of point forces.
+
+We construct a virtual torque target $\tau_t^{\mathrm{p}}\in\mathbb{R}^n$ with one entry for each of the robot's $n$ actuated joints:
+\begin{equation}
+    \tau_t^{\mathrm{p}}
+    = K_{\Delta}(\bar{q}_{t+1}-\bar{q}_t)
+    + K_e(\bar{q}_t-q_t),
+    \label{eq:virtual_torque}
+\end{equation}
+where $q_t$ and $\bar{q}_t$ are the actual and reference joint configurations. The first term conveys the reference motion increment; the second provides feedback when the robot deviates from the reference. This is a kinematic intent signal, not an inverse-dynamics torque estimate.
+
+For floating-base motion, we additionally construct a desired root wrench $w_t^{\mathrm{p}}=[(F_t^{\mathrm{p}})^\top,(M_t^{\mathrm{p}})^\top]^\top$ from reference position, velocity, and heading errors. Specifically, the current implementation uses
+\begin{align}
+    F_t^{\mathrm{p}} &=
+    k_p(\bar{p}_{t+1}-p_t)+k_v(\bar{v}_t-v_t), \\
+    M_t^{\mathrm{p}} &=
+    \bigl[0,\,0,\,
+    k_\psi\,\operatorname{wrap}(\bar{\psi}_t-\psi_t)
+    +k_\omega(\bar{\omega}_{z,t}-\omega_{z,t})\bigr]^\top,
+    \label{eq:root_intent}
+\end{align}
+followed by magnitude limits. Here $\bar{p}_{t+1}$ is the reference base position at the next time step, $\psi$ is heading, and $\operatorname{wrap}$ maps angular differences to $[-\pi,\pi)$. Roll and pitch moments have zero targets in this formulation.
+
+\paragraph{Force allocation.}
+Given the active contact set $\mathcal{I}_t$, we seek the stacked point forces $f_t$ whose combined effect best matches the target joint torques $\tau_t^{\mathrm{p}}$ and base wrench $w_t^{\mathrm{p}}$.
+
+At the robot's current actual configuration, the linear-velocity Jacobian of keypoint $i$ is $J_i\in\mathbb{R}^{3\times(6+n)}$, where $n$ is the number of actuated joints. Its transpose maps a point force to a generalized force:
+\begin{equation}
+    g(f)=\sum_{i\in\mathcal{I}_t}J_i^\top f_i
+    = A_t f,
+    \qquad
+    A_t=[J_{i_1}^\top\ \cdots\ J_{i_m}^\top].
+    \label{eq:jacobian_force}
+\end{equation}
+In the force allocation solver, point forces and Jacobians are expressed along the world axes, with the floating-base moment taken about the root-link origin. The last $n$ components of $g(f)$ give the torque about each actuated joint's axis. The policy observes forces expressed along the robot base axes, as defined in Section~\ref{sec:problem_formulation}.
+
+We stack the desired root wrench and joint intent as $g_t^{\mathrm{p}}=[(w_t^{\mathrm{p}})^\top, (\tau_t^{\mathrm{p}})^\top]^\top$ and solve
+\begin{equation}
+    \begin{aligned}
+    f_t^\star=\arg\min_f\; &\|W(A_t f-g_t^{\mathrm{p}})\|_2^2
+        +\lambda_f\|f\|_2^2 \\
+        &+\lambda_s\|f-f_{t-1}\|_2^2.
+    \end{aligned}
+    \label{eq:force_allocation}
+\end{equation}
+The three terms encourage motion-intent matching, small force magnitudes, and temporal continuity, respectively. The diagonal matrix $W$ normalizes and weights root-force, root-moment, and joint-torque errors. At each control step, we update the Jacobians and feedback terms using the current robot state and solve the resulting regularized normal equations.
+
+\paragraph{Contact selection and force limits.}
+Candidate points are sampled with probabilities biased toward larger reference point velocities. We resample poorly matched subsets a bounded number of times and retain a better allocation when available. Contacts persist over a sampled interval, with forces ramped down before switching locations. After allocation, we correct forces that oppose the prescribed root translation or yaw intent, uniformly scale them to satisfy per-point and total magnitude limits, and limit their temporal rate of change. The current limits are $30\,\mathrm{N}$ per point, $60\,\mathrm{N}$ for $\sum_i\|f_i\|_2$, and $150\,\mathrm{N/s}$ per point. These operations are post-processing steps; the physically applied forces need not remain the exact minimizer of Eq.~\eqref{eq:force_allocation}. The objective encourages agreement with motion intent but does not guarantee a unique motion or exact tracking.
+
+\subsection{Compliance-Oriented Motion Data Selection}
+\label{sec:data_selection}
+
+Motion collections contain diverse behaviors, but not all segments are equally suitable for learning responses to sparse external interaction. We select training windows in three stages, preserving useful motion variation while limiting redundancy and poorly expressed interaction intents.
+
+\paragraph{Motion quality.}
+We first screen retargeted motion windows for invalid values, discontinuities, and extreme configurations. Checks cover joint and root jumps, orientation validity, root height, and tilt. We retain continuous windows rather than assembling unrelated poses, so that force histories and motion transitions remain temporally meaningful.
+
+\paragraph{Sparse geometric expressibility.}
+We next evaluate a geometric proxy for how much of a motion increment can be expressed through a small number of contact points. At sampled instants, we form a normalized tangent-space increment $d$ containing root, waist, and arm motion, and construct a scaled point-displacement Jacobian $B_{\mathcal I}$ for a candidate contact subset. We greedily add contacts to reduce the regularized reconstruction error
+\begin{equation}
+    \begin{aligned}
+    \hat d &= B_{\mathcal I}^{\top}
+        (B_{\mathcal I}B_{\mathcal I}^{\top}+\epsilon I)^{-1}
+        B_{\mathcal I}d, \\
+    e_{\mathrm{geo}} &=
+        \frac{\|\hat d-d\|_2^2}{\|d\|_2^2+\epsilon}.
+    \end{aligned}
+    \label{eq:data_expressibility}
+\end{equation}
+The screening uses a fixed upper-body surface atlas and tests contact subsets up to a specified budget. Leg motion is excluded from this proxy because upper-body interaction need not specify each gait joint independently. In addition to the overall error, we check reconstruction of body groups with substantial motion, preventing dominant motion in one group from masking an unexplained movement elsewhere. Nearly static windows bypass the expressibility threshold and remain candidates for learning stationary behavior.
+
+We also check nominal forces proportional to one-frame Cartesian point displacements, their total magnitudes, and same-contact temporal variation. These inexpensive checks screen interaction scale; they do not replace the online force allocation in Section~\ref{sec:jacobian_prompt}. A window must pass the checks at a prescribed fraction of sampled instants. This procedure is an optimistic geometric filter: contact subsets can differ between samples, and passing does not certify unique force-to-motion decoding or successful closed-loop control. In particular, the screening contact budget is reported separately from the deployed policy's keypoint interface.
+
+\paragraph{Behavior coverage and balance.}
+From the retained windows, we identify single-arm, bilateral-arm, locomotion, yaw, crouching, bending, stationary, and mixed behaviors using motion features. We allocate a duration budget across these categories, then favor underrepresented motion directions, amplitudes, speeds, and initial postures. Root-relative hand features distinguish arm motion from whole-body translation and rotation. Within-source overlap removal, per-clip duration caps, and quantized trajectory fingerprints limit repeated content. Selection yields a training allowlist; source motions remain unchanged. Dataset-specific thresholds, category budgets, and retained durations are specified in the experiments. Evaluation uses a separately identified pool rather than only the windows favored by this filter.
+
+\subsection{Curriculum-Guided Teacher--Student Learning}
+\label{sec:teacher_student}
+
+\paragraph{Hierarchical policy architecture.}
+\label{sec:latent_control}
+For fixed keypoints, each force observation channel identifies its application point. For sampled surface contacts, the force observation includes the contact position explicitly.
+
+The teacher and student share a hierarchical control interface. Let $x_t$ collect proprioception, recent actions, and the previous decoder latent, and let $u_t$ denote the causal force history at the predefined keypoints. The teacher receives $(x_t,u_t)$, while the student receives $(x_t,\hat u_t)$, where $\hat u_t$ is estimated from proprioception. Each policy outputs a 32-dimensional latent increment $v_t$. With accumulated offset $o_t^z$, the latent update is
+\begin{equation}
+    \begin{aligned}
+    o_{t+1}^z &= o_t^z+\eta\tanh(v_t), \\
+    z_t &= \operatorname{clip}(b_t+o_{t+1}^z,-1,1).
+    \end{aligned}
+    \label{eq:latent_increment}
+\end{equation}
+The frozen SuperMimic decoder maps $z_t$ and its proprioceptive input to joint commands. The base latent $b_t$ is determined by the curriculum below. The offset is initialized to zero at reset; clipping bounds the decoder input, not the accumulated offset. The increment scale and control frequency are specified in the experiments.
+
+\paragraph{Reference-removal curriculum.}
+\label{sec:latent_curriculum}
+Let $E$ be the frozen motion encoder and $z_t^{\mathrm{GT}}=E(\bar{s}_{t+1:t+10})$ encode a ten-frame reference window. Each episode is initialized with a fixed reference-derived seed $z_{\mathrm{seed}}^{\mathrm{GT}}$. During teacher training, we use
+\begin{equation}
+    b_t=(1-\alpha)z_t^{\mathrm{GT}}
+        +\alpha z_{\mathrm{seed}}^{\mathrm{GT}}.
+    \label{eq:latent_curriculum}
+\end{equation}
+The coefficient $\alpha$ increases from zero to one according to a smoothstep schedule over a specified interval of training progress. Early training benefits from reference-conditioned tracking; later training requires the policy to produce motion through accumulated latent increments. Because the policy observes the decoder latent, reference information is indirectly available through that state during the assisted stage. The final stage fixes $\alpha=1$ and removes subsequent reference-window encoding from the action path.
+
+\paragraph{Force estimation and student learning.}
+A force estimator $\mathcal E_\phi$ predicts the teacher's force representation from a causal proprioceptive and action history $H_t$:
+\begin{equation}
+    \hat u_t=\mathcal E_\phi(H_t),
+    \qquad
+    \mathcal L_{\mathrm{force}}
+        =\mathbb E\bigl[\|\hat u_t-u_t\|_2^2\bigr].
+    \label{eq:force_estimation}
+\end{equation}
+Forces are represented at known candidate keypoints and normalized before regression. The estimator does not receive the reference motion, the true force, or future observations as inputs. Its output is an estimate of the chosen force representation, not a claim that arbitrary external contacts can be uniquely identified from proprioception.
+
+After teacher training, the student is initialized from the teacher and trained with estimated-force inputs while the teacher remains fixed. Student rollouts provide visited states at which the teacher is queried with the corresponding ground-truth forces. Writing $\mu_T$ and $\mu_S$ for the mean latent-increment outputs, the imitation objective is
+\begin{equation}
+    \begin{aligned}
+    \mathcal L_{\mathrm{imit}}=\mathbb E\bigl[
+    \|&\tanh\mu_S(x_t,\hat u_t) \\
+       &-\tanh\mu_T(x_t,u_t)\|_2^2\bigr].
+    \end{aligned}
+    \label{eq:student_imitation}
+\end{equation}
+Supervision on student-visited states reduces the mismatch between teacher trajectories and the states encountered when force estimates are imperfect. Estimator fitting uses ground-truth force labels from the same simulator.
+
+\paragraph{Training objectives and deployment.}
+The teacher is optimized with PPO using dense rewards for joint, keypoint, and root tracking, together with penalties for undesirable control behavior. A privileged critic may access reference targets, whereas the force-conditioned actor has no direct target input. Following imitation, the student can be fine-tuned with PPO while retaining the teacher regularizer:
+\begin{equation}
+    \mathcal L_S=\mathcal L_{\mathrm{PPO}}
+                 +\lambda_{\mathrm{imit}}\mathcal L_{\mathrm{imit}}.
+    \label{eq:student_training}
+\end{equation}
+The estimator is optimized separately with Eq.~\eqref{eq:force_estimation}. Its parameters are held fixed while PPO updates use the force estimates stored during rollout collection; estimator updates occur afterward. Student training and evaluation use $\alpha=1$. The pretrained motion encoder and decoder remain frozen throughout.
+
+Deployment retains the estimator, student, latent state update, and frozen decoder; the teacher, privileged critic, reference-based force generator, and tracking reward are unnecessary for action generation. The initialization protocol remains explicit: the curriculum described here uses a reference-derived initial seed. Evaluations with that seed are therefore reference-initialized, even though no subsequent target trajectory is supplied. Fully reference-free initialization requires a separately specified seed constructed from available measurements or a fixed prior.
+
+% Draft scope: the curriculum teacher has been evaluated. The estimator/student
+% stages follow the existing DenseForcePPO protocol, but this text does not imply
+% that the combined curriculum + selected-data + estimator run is validated.

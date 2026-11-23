@@ -1,0 +1,23 @@
+\section{Problem Formulation}
+\label{sec:problem_formulation}
+
+We formulate humanoid compliance as a force-prompted whole-body motion learning problem. Instead of following a desired joint configuration or reference trajectory, the robot learns to generate coordinated whole-body motion directly guided by external forces applied to its body. Unlike conventional motion tracking, reference motions serve solely as training supervision rather than motion commands available to the policy during deployment.
+
+Given a motion dataset $\mathcal{D}=\{\bar{s}_{0:T}\}$, we seek a motion-to-force mapping $G$ that converts a reference transition into a force prompt. Given the selected contact points $\mathcal I_t$, the online force update during active guidance is
+\begin{equation}
+    \mathcal{F}_t = G(\bar{s}_t,\bar{s}_{t+1};c_t).
+    \label{eq:motion_to_force}
+\end{equation}
+Here $\bar{s}_t$ and $\bar{s}_{t+1}$ are consecutive reference states, and $c_t=(s_t,\mathcal I_t,\mathcal F_{t^-})$ groups the current robot state, the indices of the active contact points, and the most recently applied force prompt. The robot state supplies the current joint configuration, base pose, and base velocity. The previous prompt is used to smooth changes in force. Section~\ref{sec:jacobian_prompt} describes contact selection and force allocation.
+
+We represent the prompt as $\mathcal F_t=\{(p_{t,i}^{\mathrm{root}},f_{t,i}^{\mathrm{root}})\mid i\in\mathcal I_t\}$. The position $p_{t,i}^{\mathrm{root}}$ is the displacement from the robot's base origin to contact $i$, expressed along the base axes. The force $f_{t,i}^{\mathrm{root}}$ uses the same axes.
+
+The force prompt $\mathcal{F}_t$ should satisfy two requirements. First, it should be intuitive for physical human--robot interaction, with application points and force directions consistent with how a person would guide the robot. Second, it should convey as much information as possible about the upcoming motion. Given the robot's current state and interaction history, the prompt should help distinguish between different upcoming motion transitions, establishing a consistent correspondence between force and motion.
+
+During training, we apply the generated forces to the robot. The policy produces actions from the history of proprioceptive observations $o_t$ and force prompts,
+\begin{equation}
+    a_t\sim\pi_\theta\bigl(\,\cdot\mid
+    o_{\leq t},\mathcal{F}_{\leq t}\bigr).
+    \label{eq:force_policy}
+\end{equation}
+The reference trajectory provides the motion-tracking reward.
