@@ -73,6 +73,20 @@ MUJOCO_GL=osmesa python scripts/mujoco_whole_body_web.py --width 640 --height 40
 python scripts/mujoco_whole_body_student.py
 ```
 
+运行刚导出的 **SuperMimic aligned 8KP contact-spring latent-increment** policy：
+
+```bash
+python scripts/mujoco_whole_body_student.py --policy supermimic-aligned8-contact-spring-latent-increment
+```
+
+也可以启动浏览器交互版：
+
+```bash
+python scripts/mujoco_whole_body_web.py --policy supermimic-aligned8-contact-spring-latent-increment --port 8765
+```
+
+这个 bundle 使用训练时的 8 个施力点和 raw root-local 力历史。训练 rollout 的 GT 动作前馈力没有加载到交互场景；拖拽时由鼠标控制单个点的弹簧力。训练策略可同时处理最多三个接触点。
+
 数值检查，不需要窗口或 GPU：
 
 ```bash

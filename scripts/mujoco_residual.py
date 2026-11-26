@@ -895,7 +895,9 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
     def __init__(self,bundle,model_path,physics_dt=None):
         meta=json.loads((bundle/'metadata.json').read_text())
         self.curriculum_backend=meta.get('backend')=='supermimic-latent-increment-curriculum'
-        if meta.get('backend') not in ('supermimic-latent-force-history','supermimic-latent-increment-curriculum'):
+        self.aligned8_backend=meta.get('backend')=='supermimic-aligned8-latent-increment-curriculum'
+        if meta.get('backend') not in ('supermimic-latent-force-history','supermimic-latent-increment-curriculum',
+                                       'supermimic-aligned8-latent-increment-curriculum'):
             raise ValueError('Expected a SuperMimic latent force-history bundle.')
         self.supermimic_joint_names=list(meta['supermimic_joint_names'])
         self.supermimic_to_model=np.asarray([meta['joint_names'].index(n) for n in self.supermimic_joint_names])
@@ -903,21 +905,30 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
         self.supermimic_action_scale=np.asarray(meta['supermimic_action_scale'],dtype=np.float32)
         self.force_history_offsets=tuple(int(x) for x in meta['force_history_offsets'])
         if self.force_history_offsets!=(0,1,2,4,8,16):raise ValueError('Unexpected force-history offsets.')
-        self.force_history=np.zeros((17,9),dtype=np.float32);self.force_history_tick=-1
+        force_dim=3*len(meta['force_points']) if self.aligned8_backend else 9
+        self.force_history=np.zeros((17,force_dim),dtype=np.float32);self.force_history_tick=-1
         self.root_ang_history=np.zeros((1,3),dtype=np.float32)
         self.gravity_history=np.zeros((1,3),dtype=np.float32)
         self.actor_joint_history=np.zeros((5,29),dtype=np.float32)
         self.low_history=[np.zeros((10,d),dtype=np.float32) for d in (29,29,3,3,29)]
         self.history_fresh=True;self.low_history_fresh=True
-        self.latent_residual_scale=float(meta.get('latent_increment_scale' if self.curriculum_backend else 'latent_residual_scale'))
+        use_increment=self.curriculum_backend or self.aligned8_backend
+        self.latent_residual_scale=float(meta.get('latent_increment_scale' if use_increment else 'latent_residual_scale'))
         self.latent_offset=np.zeros(32,dtype=np.float32)
         self.seed_latent=np.zeros(32,dtype=np.float32)
         self.current_latent=np.zeros(32,dtype=np.float32)
         super().__init__(bundle,model_path,physics_dt)
-        expected=(395,449,.025) if self.curriculum_backend else (363,417,.1)
-        scale_key='latent_increment_scale' if self.curriculum_backend else 'latent_residual_scale'
+        if self.aligned8_backend:
+            expected=(308,452,.025)
+            scale_key='latent_increment_scale'
+        else:
+            expected=(395,449,.025) if self.curriculum_backend else (363,417,.1)
+            scale_key='latent_increment_scale' if self.curriculum_backend else 'latent_residual_scale'
         if (meta['base_obs_dim'],meta['obs_dim'],float(meta[scale_key]))!=expected:
-            raise ValueError('Unexpected 3KP latent actor input dimensions or latent scale.')
+            raise ValueError('Unexpected SuperMimic latent actor input dimensions or latent scale.')
+        if self.aligned8_backend and (len(meta['force_points'])!=8 or
+                                      meta['obs_dim']!=meta['base_obs_dim']+len(self.force_history_offsets)*self.force_history.shape[1]):
+            raise ValueError('Aligned-8 actor force-history layout does not match metadata.')
         # Simulation.__init__ resets before the frozen decoder is loaded. Reset
         # again now so the seed latent can be encoded from the initial pose.
         if self.curriculum_backend:self.reset()
@@ -962,15 +973,27 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
             self.actor_joint_history[1:]=self.actor_joint_history[:-1].copy()
             self.actor_joint_history[0]=self.data.qpos[self.qadr]
             self.root_ang_history[0]=root_ang;self.gravity_history[0]=gravity
-        # Training order: angular velocity, gravity, five q frames, three
-        # previous 32-D actions, joint velocity and fixed reset reference.
-        base=np.r_[self.root_ang_history.reshape(-1),self.gravity_history.reshape(-1),
-            self.actor_joint_history.reshape(-1),self.actions.reshape(-1),qd,
-            self.reference,self.reference-q,self.reference_velocity].astype(np.float32)
+        if self.aligned8_backend:
+            # Aligned-8 training actor order is policy observations first:
+            # root angular velocity, projected gravity, five absolute q
+            # frames, three previous latent actions, joint velocity, current
+            # latent. The separate raw force-history key is concatenated last.
+            base=np.r_[self.root_ang_history.reshape(-1),self.gravity_history.reshape(-1),
+                self.actor_joint_history.reshape(-1),self.actions.reshape(-1),qd,
+                self.current_latent].astype(np.float32)
+        else:
+            # Training order: angular velocity, gravity, five q frames, three
+            # previous 32-D actions, joint velocity and fixed reset reference.
+            base=np.r_[self.root_ang_history.reshape(-1),self.gravity_history.reshape(-1),
+                self.actor_joint_history.reshape(-1),self.actions.reshape(-1),qd,
+                self.reference,self.reference-q,self.reference_velocity].astype(np.float32)
         if self.force_history_tick!=self.steps:
             self.force_history[1:]=self.force_history[:-1].copy()
             rot=self.data.xmat[self.root].reshape(3,3)
-            self.force_history[0]=(self.forces@rot).reshape(-1)/float(self.meta['force_limit'])
+            current=(self.forces@rot).reshape(-1)
+            if not self.aligned8_backend:
+                current=current/float(self.meta['force_limit'])
+            self.force_history[0]=current
         self.force_history_tick=self.steps
         self.history_fresh=False
         sampled=self.force_history[list(self.force_history_offsets)].reshape(-1)
@@ -1003,7 +1026,9 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
     def _update_policy(self):
         self.last_obs=self.observation()
         force_dim=self.forces.size
-        current=(self.forces@self.data.xmat[self.root].reshape(3,3)).reshape(-1)/float(self.meta['force_limit'])
+        current=(self.forces@self.data.xmat[self.root].reshape(3,3)).reshape(-1)
+        if not self.aligned8_backend:
+            current=current/float(self.meta['force_limit'])
         self.last_force_observation_error=float(np.max(np.abs(self.last_obs[self.meta['base_obs_dim']:self.meta['base_obs_dim']+force_dim]-current)))
         with torch.inference_mode():
             norm=(torch.from_numpy(self.last_obs)-self.loc)/self.scale
@@ -1012,7 +1037,7 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
         raw=np.clip(raw,-10.,10.);self.last_action=raw.copy()
         self.actions[1:]=self.actions[:-1].copy();self.actions[0]=raw
         obs=torch.from_numpy(self._low_observation());goal=torch.from_numpy(self._stationary_goal())
-        if self.curriculum_backend:
+        if self.curriculum_backend or self.aligned8_backend:
             self.latent_offset+=self.latent_residual_scale*np.tanh(raw)
             self.current_latent=np.clip(self.seed_latent+self.latent_offset,-1.,1.).astype(np.float32)
             with torch.inference_mode():low=self.low_policy.decode_latent(obs,torch.from_numpy(self.current_latent[None]))[0].numpy()
@@ -1023,3 +1048,10 @@ class SuperMimicLatentForceHistorySimulation(ResidualSimulation):
         self.low_action=low.astype(np.float32)
         target=self.q0.copy();target[self.supermimic_to_model]=self.supermimic_q0+self.supermimic_action_scale*self.low_action
         self.target=target
+
+    def _after_force_slew(self):
+        if self.aligned8_backend:
+            total=float(np.linalg.norm(self.forces,axis=1).sum())
+            budget=float(self.meta['force_budget'])
+            if total>budget:
+                self.forces*=budget/total

@@ -28,6 +28,7 @@ POLICY_BUNDLES = {
     'supermimic-original-arbitrary-contact': ROOT / 'deploy/mujoco_whole_body/20261118-supermimic-original-arbitrary-contact',
     'supermimic-3kp-jacobian-gtbase-latent': ROOT / 'deploy/mujoco_whole_body/20261118-supermimic-3kp-jacobian-gtbase-latent',
     'supermimic-3kp-jacobian-latent-increment-curriculum': ROOT / 'deploy/mujoco_whole_body/20261118-supermimic-3kp-jacobian-latent-increment-curriculum',
+    'supermimic-aligned8-contact-spring-latent-increment': ROOT / 'deploy/mujoco_whole_body/20261126-supermimic-aligned8-contact-spring-latent-increment',
     'ceer-online-root3-no-ee-teacher': ROOT / 'deploy/mujoco_whole_body/20261102-ceer-online-root3-no-ee-teacher',
     'ceer-online-estimated-9pt': ROOT / 'deploy/mujoco_whole_body/20261101-ceer-online-estimated-9pt',
     'ceer-online-root3': ROOT / 'deploy/mujoco_whole_body/20261029-ceer-online-root3',
@@ -382,6 +383,9 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
     elif backend == 'supermimic-latent-increment-curriculum':
         from mujoco_residual import SuperMimicLatentForceHistorySimulation
         sim = SuperMimicLatentForceHistorySimulation(bundle, model_path)
+    elif backend == 'supermimic-aligned8-latent-increment-curriculum':
+        from mujoco_residual import SuperMimicLatentForceHistorySimulation
+        sim = SuperMimicLatentForceHistorySimulation(bundle, model_path)
     elif backend in ('sonic','ceer','jacobian','segmented'):
         from mujoco_residual import ResidualSimulation
         sim = ResidualSimulation(bundle, model_path)
@@ -394,7 +398,7 @@ def make_simulation(bundle=None, model_path=DEFAULT_MODEL, policy='direct'):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle',type=Path,help='Override the selected policy bundle')
-    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','supermimic-9pt-crouch20-force-history','supermimic-surface5-latent','supermimic-surface3-direct-latent','supermimic-original-arbitrary-contact','supermimic-3kp-jacobian-gtbase-latent','supermimic-3kp-jacobian-latent-increment-curriculum','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
+    p.add_argument('--policy',choices=['direct','sonic','sonic-root3-crouch20-force-history','sonic-9pt-crouch20-force-history','supermimic-root3-crouch20-force-history','supermimic-9pt-crouch20-force-history','supermimic-surface5-latent','supermimic-surface3-direct-latent','supermimic-original-arbitrary-contact','supermimic-3kp-jacobian-gtbase-latent','supermimic-3kp-jacobian-latent-increment-curriculum','supermimic-aligned8-contact-spring-latent-increment','ceer','jacobian','jacobian-no-ee','segmented','segmented-static-hold','segmented-multi10','ceer-ee-root3','ceer-dense23','ceer-online-root3','ceer-online-estimated-root3','ceer-online-estimated-9pt','ceer-online-root3-no-ee-teacher','ceer-online-root3-crouch20-force-history','ceer-spring-root3'],default='direct')
     p.add_argument('--model',type=Path,default=DEFAULT_MODEL)
     p.add_argument('--headless',action='store_true')
     p.add_argument('--seconds',type=float,default=30.)
@@ -413,7 +417,7 @@ def main():
     for _ in range(round(args.seconds/s.model.opt.timestep)):
         desired=np.zeros_like(s.forces)
         if args.test_force and 5<=s.data.time<7:
-            slot=next((i for i,n in enumerate(s.point_names) if n in ('left_ee','left_hand')),min(4,len(s.points)-1))
+            slot=next((i for i,n in enumerate(s.point_names) if n in ('left_ee','left_hand','left_hand_mimic')),min(4,len(s.points)-1))
             desired[slot]=[15,0,0]
         s.step(desired)
         heights.append(float(s.data.qpos[2])); maxforce=max(maxforce,float(np.linalg.norm(s.forces,axis=1).max()))
@@ -426,7 +430,7 @@ def main():
         elif s.meta.get('backend') == 'supermimic-surface-direct-latent':
             start=s.meta['base_obs_dim'];width=s.meta['max_contacts']*(len(s.meta['asset_body_names'])+10)
             maxerror=max(maxerror,float(np.max(np.abs(s.last_obs[start:start+width]-s.contact_history[0]))))
-        elif s.meta.get('backend') in ('supermimic-force-history','supermimic-latent-force-history','supermimic-latent-increment-curriculum'):
+        elif s.meta.get('backend') in ('supermimic-force-history','supermimic-latent-force-history','supermimic-latent-increment-curriculum','supermimic-aligned8-latent-increment-curriculum'):
             maxerror=max(maxerror,s.last_force_observation_error)
         elif s.steps%s.decimation==1 and s.meta.get('backend') != 'dense-estimator':
             expected=(s.forces@s.data.xmat[s.root].reshape(3,3)).ravel()
